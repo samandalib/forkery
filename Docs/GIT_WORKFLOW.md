@@ -17,6 +17,14 @@ This document outlines our Git workflow, branching strategy, and development pro
 - **`develop`** - Development branch, direct commits allowed
 - **Feature branches** - Created from `develop` for complex features
 
+### Current Branch Structure
+
+| Branch | Purpose | Status | Last Updated |
+|--------|---------|---------|--------------|
+| **`main`** | Production releases | Stable v0.1.1 | ✅ Latest |
+| **`develop`** | Active development | Active | ✅ Latest |
+| **`feature/fullstack-nodejs-projects`** | Fullstack templates | In Progress | 🚀 New |
+
 ## 🚀 Development Workflow
 
 ### 1. Daily Development (on `develop`)
@@ -39,33 +47,39 @@ git commit -m "feat: description of changes"
 git push origin develop
 ```
 
-### 2. Feature Development (optional)
+### 2. Feature Development (Current: Fullstack Node.js Projects)
 
 For complex features that need isolation:
 
 ```bash
 # Create feature branch from develop
-git checkout -b feature/new-feature-name
+git checkout -b feature/fullstack-nodejs-projects
 
 # Work on feature
 # ... make changes ...
 
 # Commit changes
 git add .
-git commit -m "feat: add new feature"
+git commit -m "feat: add fullstack Node.js project templates"
 
 # Push feature branch
-git push origin feature/new-feature-name
+git push origin feature/fullstack-nodejs-projects
 
 # When ready, merge back to develop
 git checkout develop
-git merge feature/new-feature-name
+git merge feature/fullstack-nodejs-projects
 git push origin develop
 
 # Clean up feature branch
-git branch -d feature/new-feature-name
-git push origin --delete feature/new-feature-name
+git branch -d feature/fullstack-nodejs-projects
+git push origin --delete feature/fullstack-nodejs-projects
 ```
+
+#### Current Feature: Fullstack Project Templates
+- **Branch**: `feature/fullstack-nodejs-projects`
+- **Goal**: Add fullstack project creation with Node.js backends
+- **Templates**: Express.js + React, Node.js + Next.js, etc.
+- **Status**: 🚀 Just started
 
 ### 3. Release Process
 
@@ -82,13 +96,19 @@ git pull origin main
 git merge develop
 
 # Tag the release
-git tag -a v0.2.0 -m "Release version 0.2.0"
+git tag -a v0.1.1 -m "Release version 0.1.1"
 git push origin main
 git push origin --tags
 
 # Return to develop for next development cycle
 git checkout develop
 ```
+
+#### Recent Release: Version 0.1.1 ✅
+- **Date**: August 13, 2024
+- **Major Fixes**: Port handling, preview functionality, Vite config synchronization
+- **Status**: Successfully released and merged to main
+- **Next Target**: Version 0.1.2 or 0.2.0 with fullstack templates
 
 ## 📝 Commit Message Convention
 
@@ -130,19 +150,23 @@ git commit -m "fix: resolve preview button not working
 
 ## 🔄 Current Development Status
 
-### Version 0.1 (Released on `main`)
+### Version 0.1.1 (Released on `main`)
 - ✅ Extension activation and UI
 - ✅ Project creation from templates
 - ✅ Project detection and framework identification
 - ✅ Status bar integration
 - ✅ Command palette integration
-- ✅ Basic preview functionality
+- ✅ **RESOLVED: Port handling and preview functionality**
+- ✅ **RESOLVED: Port conflict resolution and Vite config synchronization**
+- ✅ **RESOLVED: Status bar preview button for existing projects**
 
 ### Active Development (on `develop`)
-- 🔄 Testing and bug fixes
-- 🔄 Performance improvements
+- ✅ Port handling issues resolved
+- ✅ Enhanced debugging and logging
+- ✅ Process cleanup and management
+- 🔄 Fullstack project templates (Node.js, Express, etc.)
 - 🔄 Additional framework support
-- 🔄 Enhanced error handling
+- 🔄 Browser opening improvements
 
 ## 🚫 What NOT to Do
 
@@ -252,6 +276,26 @@ git push origin develop
 2. **Feature Work**: Use feature branches if needed
 3. **Release**: Merge `develop` → `main` when ready
 4. **Never**: Commit directly to `main`
+
+## 🎯 Current Development Priorities
+
+### Phase 1: Core Functionality ✅ COMPLETED
+- ✅ Extension activation and UI
+- ✅ Project creation from templates
+- ✅ Port handling and preview functionality
+- ✅ Status bar integration
+
+### Phase 2: Fullstack Templates 🚀 IN PROGRESS
+- 🔄 Fullstack Node.js project templates
+- 🔄 Express.js + React integration
+- 🔄 Backend and frontend port management
+- 🔄 Database setup and configuration
+
+### Phase 3: Future Enhancements 📋 PLANNED
+- 🔄 Additional framework support (Vue, Svelte, etc.)
+- 🔄 Browser opening improvements
+- 🔄 Advanced configuration options
+- 🔄 Performance optimizations
 
 ---
 
