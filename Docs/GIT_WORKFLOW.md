@@ -160,11 +160,22 @@ git commit -m "fix: resolve preview button not working
 - ✅ **RESOLVED: Port conflict resolution and Vite config synchronization**
 - ✅ **RESOLVED: Status bar preview button for existing projects**
 
+### Version 0.1.2 (In Development on `develop`)
+- ✅ **NEW: Fullstack project templates** with Node.js backends
+- ✅ **NEW: Express.js + React** fullstack template
+- ✅ **NEW: Node.js + Next.js** fullstack template
+- ✅ **NEW: Concurrent backend + frontend** development servers
+- ✅ **NEW: Automatic fullstack project structure** generation
+- ✅ **NEW: Backend API endpoints** (health check, sample data)
+- ✅ **NEW: Frontstack integration** with backend APIs
+- ✅ **NEW: Fullstack process management** and cleanup
+- ✅ **NEW: Next.js naming restriction handling** with alternative template fallback
+
 ### Active Development (on `develop`)
 - ✅ Port handling issues resolved
 - ✅ Enhanced debugging and logging
 - ✅ Process cleanup and management
-- 🔄 Fullstack project templates (Node.js, Express, etc.)
+- 🚧 **Fullstack project templates** (Node.js, Express, etc.) - **IN PROGRESS**
 - 🔄 Additional framework support
 - 🔄 Browser opening improvements
 

@@ -39,10 +39,24 @@ class PreviewManager {
   private projectTemplates: ProjectTemplate[] = [
     {
       name: 'Next.js App',
-      description: 'Full-stack React framework with file-based routing',
-      command: 'npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes',
+      description: 'Full-stack React framework with file-based routing (requires lowercase workspace name)',
+      command: 'npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes --use-npm',
       port: 3000,
       dependencies: ['next', 'react', 'react-dom']
+    },
+    {
+      name: 'Express.js + React Fullstack',
+      description: 'Node.js backend with Express + React frontend',
+      command: 'npm init -y && mkdir -p backend frontend',
+      port: 3000,
+      dependencies: ['express', 'react', 'react-dom', 'cors', 'nodemon']
+    },
+    {
+      name: 'Node.js + Next.js Fullstack',
+      description: 'Custom Node.js backend with Next.js frontend',
+      command: 'npm init -y && mkdir -p backend frontend',
+      port: 3000,
+      dependencies: ['express', 'next', 'react', 'react-dom', 'cors', 'nodemon']
     },
     {
       name: 'Simple React',
@@ -189,6 +203,22 @@ class PreviewManager {
     this.outputChannel.appendLine(`Command: ${template.command}`);
     this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
     
+    // Check for Next.js naming restrictions
+    if (template.name.toLowerCase().includes('next.js') && this.hasInvalidWorkspaceName(workspaceRoot)) {
+      const action = await vscode.window.showErrorMessage(
+        'Next.js cannot create projects in folders with capital letters or special characters. Please rename your workspace folder to use only lowercase letters, numbers, and hyphens.',
+        'Try Alternative Template', 'Cancel'
+      );
+      
+      if (action === 'Try Alternative Template') {
+        // Offer alternative templates that don't have naming restrictions
+        await this.offerAlternativeTemplates();
+        return;
+      } else {
+        throw new Error('Project creation cancelled due to workspace naming restrictions');
+      }
+    }
+    
     // Show progress
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
@@ -260,7 +290,7 @@ class PreviewManager {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       // Update package.json with proper scripts for React projects
-      if (template.name.toLowerCase().includes('react')) {
+      if (template.name.toLowerCase().includes('react') && !template.name.toLowerCase().includes('fullstack')) {
         try {
           const packageJsonPath = path.join(workspaceRoot, 'package.json');
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -328,12 +358,20 @@ export default App`;
           // Write all the files
           fs.writeFileSync(path.join(workspaceRoot, 'vite.config.js'), viteConfigContent);
           fs.writeFileSync(path.join(workspaceRoot, 'src/main.jsx'), mainJsxContent);
-          fs.writeFileSync(path.join(workspaceRoot, 'src/App.jsx'), appJsxContent);
           fs.writeFileSync(path.join(workspaceRoot, 'index.html'), indexHtmlContent);
           
           this.outputChannel.appendLine('✅ Created React project files (vite.config.js, src/main.jsx, src/App.jsx, index.html)');
         } catch (error) {
           this.outputChannel.appendLine(`⚠️ Warning: Could not create React project files: ${error}`);
+        }
+      }
+
+      // Handle fullstack project creation
+      if (template.name.toLowerCase().includes('fullstack')) {
+        try {
+          await this.createFullstackProject(template, workspaceRoot);
+        } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Warning: Could not create fullstack project: ${error}`);
         }
       }
     });
@@ -403,7 +441,11 @@ export default App`;
     let framework = 'generic';
     const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
     
-    if (dependencies.next) framework = 'next';
+    // Check for fullstack projects first
+    if (scripts.dev && scripts['dev:backend'] && scripts['dev:frontend']) {
+      framework = 'fullstack';
+      this.outputChannel.appendLine(`🎯 Detected fullstack project with backend and frontend scripts`);
+    } else if (dependencies.next) framework = 'next';
     else if (dependencies.vite) framework = 'vite';
     else if (dependencies.gatsby) framework = 'gatsby';
     else if (dependencies.astro) framework = 'astro';
@@ -423,6 +465,10 @@ export default App`;
     // Determine default port
     let port = 3000;
     switch (framework) {
+      case 'fullstack':
+        port = 3000; // Frontend port for fullstack
+        this.outputChannel.appendLine(`🎯 Detected fullstack project - using frontend port 3000`);
+        break;
       case 'vite': 
         port = 5173; 
         this.outputChannel.appendLine(`🎯 Detected Vite project - using port 5173`);
@@ -527,7 +573,458 @@ export default App`;
     }
   }
 
-  private async updateViteConfigPort(newPort: number): Promise<void> {
+  private async createFullstackProject(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    this.outputChannel.appendLine(`🚀 Creating fullstack project: ${template.name}`);
+    
+    try {
+      // Update package.json with fullstack scripts
+      const packageJsonPath = path.join(workspaceRoot, 'package.json');
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      
+      // Add fullstack scripts
+      packageJson.scripts = {
+        "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+        "dev:backend": "nodemon backend/server.js",
+        "dev:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm run dev" : "cd frontend && npm run dev",
+        "build": "npm run build:frontend",
+        "build:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm run build" : "cd frontend && npm run build",
+        "start": "node backend/server.js"
+      };
+      
+      // Add fullstack dependencies
+      packageJson.dependencies = {
+        "express": "^4.18.2",
+        "cors": "^2.8.5"
+      };
+      
+      packageJson.devDependencies = {
+        "nodemon": "^3.0.1",
+        "concurrently": "^8.2.0"
+      };
+      
+      // Write updated package.json
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+      this.outputChannel.appendLine('✅ Updated package.json with fullstack scripts and dependencies');
+      
+      // Create backend structure
+      await this.createBackendStructure(workspaceRoot);
+      
+      // Create frontend structure
+      await this.createFrontendStructure(template, workspaceRoot);
+      
+      // Create root README
+      await this.createFullstackReadme(template, workspaceRoot);
+      
+      this.outputChannel.appendLine('✅ Fullstack project structure created successfully');
+      
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Error creating fullstack project: ${error}`);
+      throw error;
+    }
+  }
+
+  private async createBackendStructure(workspaceRoot: string): Promise<void> {
+    const backendDir = path.join(workspaceRoot, 'backend');
+    
+    // Create backend package.json
+    const backendPackageJson = {
+      name: "backend",
+      version: "1.0.0",
+      description: "Backend server for fullstack application",
+      main: "server.js",
+      scripts: {
+        "start": "node server.js",
+        "dev": "nodemon server.js"
+      },
+      dependencies: {
+        "express": "^4.18.2",
+        "cors": "^2.8.5"
+      },
+      devDependencies: {
+        "nodemon": "^3.0.1"
+      }
+    };
+    
+    fs.writeFileSync(path.join(backendDir, 'package.json'), JSON.stringify(backendPackageJson, null, 2));
+    
+    // Create Express server
+    const serverContent = `const express = require('express');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Routes
+app.get('/api/health', (req, res) => {
+  res.json({ message: 'Backend server is running! 🚀', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/data', (req, res) => {
+  res.json({ 
+    message: 'Sample data from backend',
+    items: ['Item 1', 'Item 2', 'Item 3'],
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(\`🚀 Backend server running on port \${PORT}\`);
+  console.log(\`📡 Health check: http://localhost:\${PORT}/api/health\`);
+  console.log(\`📊 Sample data: http://localhost:\${PORT}/api/data\`);
+});`;
+    
+    fs.writeFileSync(path.join(backendDir, 'server.js'), serverContent);
+    
+    this.outputChannel.appendLine('✅ Backend structure created (server.js, package.json)');
+  }
+
+  private async createFrontendStructure(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    const frontendDir = path.join(workspaceRoot, 'frontend');
+    
+    if (template.name.toLowerCase().includes('next')) {
+      // Create Next.js frontend
+      await this.createNextjsFrontend(frontendDir);
+    } else {
+      // Create React frontend
+      await this.createReactFrontend(frontendDir);
+    }
+  }
+
+  private async createNextjsFrontend(frontendDir: string): Promise<void> {
+    // Create Next.js package.json
+    const nextPackageJson = {
+      name: "frontend",
+      version: "1.0.0",
+      description: "Next.js frontend for fullstack application",
+      scripts: {
+        "dev": "next dev",
+        "build": "next build",
+        "start": "next start"
+      },
+      dependencies: {
+        "next": "^14.0.0",
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0"
+      },
+      devDependencies: {
+        "@types/node": "^20.0.0",
+        "@types/react": "^18.0.0",
+        "@types/react-dom": "^18.0.0",
+        "typescript": "^5.0.0"
+      }
+    };
+    
+    fs.writeFileSync(path.join(frontendDir, 'package.json'), JSON.stringify(nextPackageJson, null, 2));
+    
+    // Create basic Next.js structure
+    const pagesDir = path.join(frontendDir, 'pages');
+    const apiDir = path.join(frontendDir, 'pages/api');
+    
+    fs.mkdirSync(pagesDir, { recursive: true });
+    fs.mkdirSync(apiDir, { recursive: true });
+    
+    // Create index page
+    const indexPage = `import { useState, useEffect } from 'react';
+
+export default function Home() {
+  const [backendData, setBackendData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/data')
+      .then(res => res.json())
+      .then(data => {
+        setBackendData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching from backend:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>🚀 Fullstack Next.js + Node.js App</h1>
+      <p>This is a fullstack application with Next.js frontend and Express backend.</p>
+      
+      <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+        <h3>Backend Data:</h3>
+        {loading ? (
+          <p>Loading data from backend...</p>
+        ) : backendData ? (
+          <div>
+            <p><strong>Message:</strong> {backendData.message}</p>
+            <p><strong>Items:</strong> {backendData.items.join(', ')}</p>
+            <p><strong>Timestamp:</strong> {backendData.timestamp}</p>
+          </div>
+        ) : (
+          <p>No data received from backend</p>
+        )}
+      </div>
+      
+      <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
+        <p><strong>Backend:</strong> http://localhost:5000</p>
+        <p><strong>Frontend:</strong> http://localhost:3000</p>
+      </div>
+    </div>
+  );
+}`;
+    
+    fs.writeFileSync(path.join(frontendDir, 'pages/index.js'), indexPage);
+    
+    this.outputChannel.appendLine('✅ Next.js frontend structure created');
+  }
+
+  private async createReactFrontend(frontendDir: string): Promise<void> {
+    // Create React package.json
+    const reactPackageJson = {
+      name: "frontend",
+      version: "1.0.0",
+      description: "React frontend for fullstack application",
+      scripts: {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+      },
+      dependencies: {
+        "react": "^18.0.0",
+        "react-dom": "^18.0.0"
+      },
+      devDependencies: {
+        "@vitejs/plugin-react": "^4.0.0",
+        "vite": "^4.0.0"
+      }
+    };
+    
+    fs.writeFileSync(path.join(frontendDir, 'package.json'), JSON.stringify(reactPackageJson, null, 2));
+    
+    // Create Vite config
+    const viteConfig = `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000,
+    strictPort: true,
+    open: false
+  }
+})`;
+    
+    fs.writeFileSync(path.join(frontendDir, 'vite.config.js'), viteConfig);
+    
+    // Create src directory and files
+    const srcDir = path.join(frontendDir, 'src');
+    fs.mkdirSync(srcDir, { recursive: true });
+    
+    const mainJsx = `import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+)`;
+    
+    const appJsx = `import { useState, useEffect } from 'react';
+
+function App() {
+  const [backendData, setBackendData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:5000/api/data')
+      .then(res => res.json())
+      .then(data => {
+        setBackendData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching from backend:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>🚀 Fullstack React + Node.js App</h1>
+      <p>This is a fullstack application with React frontend and Express backend.</p>
+      
+      <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+        <h3>Backend Data:</h3>
+        {loading ? (
+          <p>Loading data from backend...</p>
+        ) : backendData ? (
+          <div>
+            <p><strong>Message:</strong> {backendData.message}</p>
+            <p><strong>Items:</strong> {backendData.items.join(', ')}</p>
+            <p><strong>Timestamp:</strong> {backendData.timestamp}</p>
+          </div>
+        ) : (
+          <p>No data received from backend</p>
+        )}
+      </div>
+      
+      <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
+        <p><strong>Backend:</strong> http://localhost:5000</p>
+        <p><strong>Frontend:</strong> http://localhost:3000</p>
+      </div>
+    </div>
+  );
+}
+
+export default App;`;
+    
+    const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fullstack React App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>`;
+    
+    fs.writeFileSync(path.join(frontendDir, 'src/main.jsx'), mainJsx);
+    fs.writeFileSync(path.join(frontendDir, 'src/App.jsx'), appJsx);
+    fs.writeFileSync(path.join(frontendDir, 'index.html'), indexHtml);
+    
+    this.outputChannel.appendLine('✅ React frontend structure created');
+  }
+
+  private async createFullstackReadme(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    const readmeContent = `# 🚀 Fullstack ${template.name}
+
+This is a fullstack application created with the One-Click Local Preview extension.
+
+## 📁 Project Structure
+
+\`\`\`
+.
+├── backend/          # Node.js/Express backend server
+│   ├── server.js     # Express server with API endpoints
+│   └── package.json  # Backend dependencies
+├── frontend/         # Frontend application
+│   ├── src/          # Source files
+│   ├── package.json  # Frontend dependencies
+│   └── ...           # Framework-specific files
+└── package.json      # Root package.json with fullstack scripts
+\`\`\`
+
+## 🚀 Getting Started
+
+### 1. Install Dependencies
+\`\`\`bash
+# Install root dependencies
+npm install
+
+# Install backend dependencies
+cd backend && npm install
+
+# Install frontend dependencies
+cd frontend && npm install
+\`\`\`
+
+### 2. Start Development Servers
+\`\`\`bash
+# Start both backend and frontend (recommended)
+npm run dev
+
+# Or start them separately:
+npm run dev:backend    # Backend on port 5000
+npm run dev:frontend   # Frontend on port 3000
+\`\`\`
+
+## 🌐 URLs
+
+- **Backend API**: http://localhost:5000
+- **Frontend App**: http://localhost:3000
+- **Health Check**: http://localhost:5000/api/health
+- **Sample Data**: http://localhost:5000/api/data
+
+## 🔧 Available Scripts
+
+- \`npm run dev\` - Start both backend and frontend in development mode
+- \`npm run dev:backend\` - Start only the backend server
+- \`npm run dev:frontend\` - Start only the frontend
+- \`npm run build\` - Build the frontend for production
+- \`npm start\` - Start the production backend server
+
+## 📚 API Endpoints
+
+- \`GET /api/health\` - Server health check
+- \`GET /api/data\` - Sample data endpoint
+
+## 🛠️ Technologies Used
+
+- **Backend**: Node.js, Express.js, CORS
+- **Frontend**: ${template.name.toLowerCase().includes('next') ? 'Next.js, React' : 'React, Vite'}
+- **Development**: Nodemon, Concurrently
+- **Ports**: Backend (5000), Frontend (3000)
+
+---
+
+Created with ❤️ by the One-Click Local Preview Extension
+`;
+    
+    fs.writeFileSync(path.join(workspaceRoot, 'README.md'), readmeContent);
+          this.outputChannel.appendLine('✅ Fullstack README created');
+    }
+
+  private hasInvalidWorkspaceName(workspaceRoot: string): boolean {
+    const folderName = path.basename(workspaceRoot);
+    // Check for capital letters, spaces, or special characters that cause npm issues
+    return /[A-Z]/.test(folderName) || /\s/.test(folderName) || /[^a-zA-Z0-9\-_]/.test(folderName);
+  }
+
+  private async offerAlternativeTemplates(): Promise<void> {
+    const alternatives = [
+      'Simple React',
+      'Express.js + React Fullstack',
+      'Node.js + Next.js Fullstack',
+      'Simple HTML/CSS/JS'
+    ];
+    
+    const selected = await vscode.window.showQuickPick(alternatives, {
+      placeHolder: 'Select an alternative template that works with your workspace name:',
+      title: 'Alternative Templates'
+    });
+    
+    if (selected) {
+      const template = this.projectTemplates.find(t => t.name === selected);
+      if (template) {
+        this.outputChannel.appendLine(`🔄 Switching to alternative template: ${selected}`);
+        await this.createNewProjectWithTemplate(template);
+      }
+    }
+  }
+
+  private async createNewProjectWithTemplate(template: ProjectTemplate): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      vscode.window.showErrorMessage('No workspace folder found');
+      return;
+    }
+    
+    try {
+      await this.executeProjectCreation(template, workspaceRoot);
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Error creating project with template ${template.name}: ${error}`);
+      vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+    }
+  }
+  
+    private async updateViteConfigPort(newPort: number): Promise<void> {
     if (this.config?.framework !== 'vite') return;
     
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -582,6 +1079,37 @@ export default App`;
       });
     } catch (error) {
       this.outputChannel.appendLine(`⚠️ Error killing existing Vite processes: ${error}`);
+    }
+  }
+
+  private async killExistingFullstackProcesses(): Promise<void> {
+    try {
+      this.outputChannel.appendLine('🔍 Checking for existing fullstack processes...');
+      
+      // Kill both backend and frontend processes
+      const processes = ['node', 'npm', 'yarn', 'pnpm'];
+      
+      for (const processName of processes) {
+        try {
+          const killProcess = child_process.spawn('pkill', ['-f', processName], {
+            stdio: 'pipe',
+            shell: true
+          });
+
+          await new Promise<void>((resolve) => {
+            killProcess.on('error', (error) => {
+              this.outputChannel.appendLine(`⚠️ Error killing ${processName} processes: ${error}`);
+              resolve();
+            });
+          });
+        } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Error killing ${processName} processes: ${error}`);
+        }
+      }
+      
+      this.outputChannel.appendLine('✅ Fullstack process cleanup completed');
+    } catch (error) {
+      this.outputChannel.appendLine(`⚠️ Error killing existing fullstack processes: ${error}`);
     }
   }
 
@@ -653,9 +1181,11 @@ export default App`;
 
       this.outputChannel.appendLine('🚀 Starting preview...');
 
-      // Kill any existing Vite processes that might be using the port
+      // Kill any existing processes that might be using the port
       if (this.config?.framework === 'vite') {
         await this.killExistingViteProcesses();
+      } else if (this.config?.framework === 'fullstack') {
+        await this.killExistingFullstackProcesses();
       }
 
       // Detect project configuration
@@ -700,12 +1230,23 @@ export default App`;
       ? [this.config.script]
       : ['run', this.config.script];
 
-    this.outputChannel.appendLine(`Starting ${this.config.framework} server on port ${port}...`);
-    this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
-    this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
-    this.outputChannel.appendLine(`Script to run: ${this.config.script}`);
-    this.outputChannel.appendLine(`Expected port: ${port}`);
-    this.outputChannel.appendLine(`Vite config will use strictPort: true to force this port`);
+    if (this.config.framework === 'fullstack') {
+      this.outputChannel.appendLine(`Starting fullstack project with backend and frontend...`);
+      this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
+      this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
+      this.outputChannel.appendLine(`Script to run: ${this.config.script} (concurrently runs both servers)`);
+      this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
+      this.outputChannel.appendLine(`Fullstack mode: Backend + Frontend running simultaneously`);
+    } else {
+      this.outputChannel.appendLine(`Starting ${this.config.framework} server on port ${port}...`);
+      this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
+      this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
+      this.outputChannel.appendLine(`Script to run: ${this.config.script}`);
+      this.outputChannel.appendLine(`Expected port: ${port}`);
+      if (this.config.framework === 'vite') {
+        this.outputChannel.appendLine(`Vite config will use strictPort: true to force this port`);
+      }
+    }
 
     const childProcess = child_process.spawn(command, args, {
       cwd: workspaceRoot,
@@ -769,6 +1310,11 @@ export default App`;
     const lowerOutput = output.toLowerCase();
     
     switch (framework) {
+      case 'fullstack':
+        // For fullstack, we need both backend and frontend to be ready
+        return (lowerOutput.includes('backend') && lowerOutput.includes('frontend')) ||
+               (lowerOutput.includes('concurrently') && lowerOutput.includes('ready')) ||
+               lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('listening');
       case 'next':
         return lowerOutput.includes('ready') || lowerOutput.includes('started server');
       case 'vite':

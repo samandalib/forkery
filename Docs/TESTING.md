@@ -220,6 +220,26 @@ The extension is working correctly when:
 5. Cleans up any existing processes
 6. Starts server on available port
 
+## 🔧 Next.js Naming Restrictions (RESOLVED ✅)
+
+### What Was Fixed:
+- **Workspace Naming**: Next.js projects now check for invalid workspace names
+- **Capital Letters**: Detects uppercase letters that cause npm restrictions
+- **Alternative Templates**: Offers working alternatives when Next.js fails
+- **User Experience**: Clear error messages and graceful fallbacks
+
+### How It Works:
+1. Extension checks workspace name before Next.js creation
+2. If invalid name detected, shows helpful error message
+3. Offers alternative templates (React, Fullstack, HTML/CSS/JS)
+4. User can select working alternative or rename workspace
+5. Next.js only attempts creation in valid workspace names
+
+### Testing Scenarios:
+- **Invalid workspace**: "TestWorkspace" → Shows error + alternatives
+- **Valid workspace**: "test-workspace" → Next.js works normally
+- **Alternative selection**: Any workspace → Fullstack templates work
+
 ## 🚀 Next Steps After Testing
 
 Once you've verified the extension works:
