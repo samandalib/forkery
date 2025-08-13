@@ -4,6 +4,11 @@ import * as fs from 'fs';
 import * as child_process from 'child_process';
 import * as http from 'http';
 import detectPort from 'detect-port';
+import { UIManager } from './ui/UIManager';
+import { TemplateViewProvider } from './ui/ViewProviders';
+import { ProjectControlViewProvider } from './ui/ViewProviders';
+import { TemplatePanel } from './ui/TemplatePanel';
+import { ProjectControlPanel } from './ui/ProjectControlPanel';
 
 interface ProjectConfig {
   framework: string;
@@ -34,6 +39,7 @@ class PreviewManager {
   private status: PreviewStatus;
   private config: ProjectConfig | null = null;
   private contextKey: vscode.ExtensionContext;
+  private uiManager: UIManager;
 
   // Project templates for quick start
   private projectTemplates: ProjectTemplate[] = [
@@ -90,11 +96,17 @@ class PreviewManager {
       vscode.StatusBarAlignment.Left,
       100
     );
-    this.statusBarItem.command = 'preview.run';
-    this.statusBarItem.tooltip = 'Click to start preview or create new project';
+    this.statusBarItem.command = 'preview.showUI';
+    this.statusBarItem.tooltip = 'Click to show project UI or create new project';
     
     // Create output channel
     this.outputChannel = vscode.window.createOutputChannel('Preview Logs');
+
+    // Initialize UI manager
+    this.uiManager = UIManager.getInstance();
+
+    // Register view providers for sidebar
+    this.registerViewProviders();
 
     // Register commands
     this.registerCommands();
@@ -122,6 +134,22 @@ class PreviewManager {
     console.log('PreviewManager: Initialization complete');
   }
 
+  private registerViewProviders(): void {
+    // Register the template view provider
+    const templateViewProvider = new TemplateViewProvider(TemplatePanel.getInstance());
+    vscode.window.registerWebviewViewProvider(
+      TemplateViewProvider.viewType,
+      templateViewProvider
+    );
+
+    // Register the project control view provider
+    const projectControlViewProvider = new ProjectControlViewProvider(ProjectControlPanel.getInstance());
+    vscode.window.registerWebviewViewProvider(
+      ProjectControlViewProvider.viewType,
+      projectControlViewProvider
+    );
+  }
+
   private registerCommands(): void {
     // These commands are already declared in package.json, so they should work
     // But we need to ensure they're properly bound to the instance methods
@@ -140,6 +168,21 @@ class PreviewManager {
     vscode.commands.registerCommand('preview.createProject', () => {
       this.outputChannel.appendLine('🚀 Preview: Create Project command executed');
       this.createNewProject();
+    });
+
+    vscode.commands.registerCommand('preview.showUI', () => {
+      this.outputChannel.appendLine('🎨 Preview: Show UI command executed');
+      this.uiManager.showAppropriateUI();
+    });
+
+    vscode.commands.registerCommand('preview.showTemplates', () => {
+      this.outputChannel.appendLine('📋 Preview: Show Templates command executed');
+      this.uiManager.showTemplateSelection();
+    });
+
+    vscode.commands.registerCommand('preview.showProjectControl', () => {
+      this.outputChannel.appendLine('🎛️ Preview: Show Project Control command executed');
+      this.uiManager.showProjectControl();
     });
   }
 
@@ -314,7 +357,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    strictPort: true,
+    strictPort: false,
     open: false
   }
 })`;
@@ -358,6 +401,7 @@ export default App`;
           // Write all the files
           fs.writeFileSync(path.join(workspaceRoot, 'vite.config.js'), viteConfigContent);
           fs.writeFileSync(path.join(workspaceRoot, 'src/main.jsx'), mainJsxContent);
+          fs.writeFileSync(path.join(workspaceRoot, 'src/App.jsx'), appJsxContent);
           fs.writeFileSync(path.join(workspaceRoot, 'index.html'), indexHtmlContent);
           
           this.outputChannel.appendLine('✅ Created React project files (vite.config.js, src/main.jsx, src/App.jsx, index.html)');
@@ -1169,6 +1213,94 @@ Created with ❤️ by the One-Click Local Preview Extension
     }
   }
 
+  private async killProcessesOnPort(port: number): Promise<void> {
+    try {
+      this.outputChannel.appendLine(`🔍 Aggressively killing processes on port ${port}...`);
+      
+      // Use lsof to find processes using the port
+      const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
+        stdio: 'pipe',
+        shell: true
+      });
+
+      let processIds = '';
+      findProcess.stdout?.on('data', (data) => {
+        processIds += data.toString();
+      });
+
+      await new Promise<void>((resolve) => {
+        findProcess.on('close', async (code) => {
+          if (code === 0 && processIds.trim()) {
+            const pids = processIds.trim().split('\n');
+            this.outputChannel.appendLine(`🎯 Found ${pids.length} process(es) using port ${port}`);
+            
+            for (const pid of pids) {
+              if (pid.trim()) {
+                try {
+                  // First try graceful termination
+                  const killProcess = child_process.spawn('kill', [pid.trim()], {
+                    stdio: 'pipe',
+                    shell: true
+                  });
+                  
+                  await new Promise<void>((resolveKill) => {
+                    killProcess.on('close', () => {
+                      this.outputChannel.appendLine(`✅ Gracefully killed process ${pid.trim()} on port ${port}`);
+                      resolveKill();
+                    });
+                  });
+                  
+                  // Wait a moment for graceful shutdown
+                  await new Promise(resolve => setTimeout(resolve, 500));
+                  
+                  // Check if process is still running, if so, force kill
+                  try {
+                    const checkProcess = child_process.spawn('kill', ['-0', pid.trim()], {
+                      stdio: 'pipe',
+                      shell: true
+                    });
+                    
+                    await new Promise<void>((resolveCheck) => {
+                      checkProcess.on('close', async (checkCode) => {
+                        if (checkCode === 0) {
+                          // Process still running, force kill
+                          this.outputChannel.appendLine(`⚠️ Process ${pid.trim()} still running, force killing...`);
+                          const forceKill = child_process.spawn('kill', ['-9', pid.trim()], {
+                            stdio: 'pipe',
+                            shell: true
+                          });
+                          
+                          await new Promise<void>((resolveForce) => {
+                            forceKill.on('close', () => {
+                              this.outputChannel.appendLine(`💀 Force killed process ${pid.trim()} on port ${port}`);
+                              resolveForce();
+                            });
+                          });
+                        }
+                        resolveCheck();
+                      });
+                    });
+                  } catch (error) {
+                    // Process already terminated
+                  }
+                } catch (error) {
+                  this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
+                }
+              }
+            }
+          } else {
+            this.outputChannel.appendLine(`ℹ️ No processes found using port ${port}`);
+          }
+          resolve();
+        });
+      });
+      
+      this.outputChannel.appendLine(`✅ Port ${port} cleanup completed`);
+    } catch (error) {
+      this.outputChannel.appendLine(`⚠️ Error killing processes on port ${port}: ${error}`);
+    }
+  }
+
   private async installDependencies(): Promise<void> {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) return;
@@ -1258,12 +1390,20 @@ Created with ❤️ by the One-Click Local Preview Extension
   private async findAvailablePort(desiredPort: number): Promise<number> {
     try {
       this.outputChannel.appendLine(`🔍 Checking if port ${desiredPort} is available...`);
+      
+      // First, aggressively kill any processes using the desired port
+      await this.killProcessesOnPort(desiredPort);
+      
+      // Wait a moment for processes to fully terminate
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Now check port availability
       const availablePort = await detectPort(desiredPort);
       
       if (availablePort === desiredPort) {
-        this.outputChannel.appendLine(`✅ Port ${desiredPort} is available`);
+        this.outputChannel.appendLine(`✅ Port ${desiredPort} is available after cleanup`);
       } else {
-        this.outputChannel.appendLine(`⚠️ Port ${desiredPort} was busy, using ${availablePort} instead`);
+        this.outputChannel.appendLine(`⚠️ Port ${desiredPort} still busy after cleanup, using ${availablePort} instead`);
         
         // For Vite projects, update the Vite config to use the new port
         if (this.config?.framework === 'vite') {
@@ -1359,7 +1499,7 @@ Created with ❤️ by the One-Click Local Preview Extension
       this.outputChannel.appendLine(`Script to run: ${this.config.script}`);
       this.outputChannel.appendLine(`Expected port: ${port}`);
       if (this.config.framework === 'vite') {
-        this.outputChannel.appendLine(`Vite config will use strictPort: true to force this port`);
+        this.outputChannel.appendLine(`Vite will try port ${port} first, then find alternatives if busy`);
       }
     }
 
@@ -1489,6 +1629,15 @@ Created with ❤️ by the One-Click Local Preview Extension
     // Update context key for command palette
     vscode.commands.executeCommand('setContext', 'preview.isRunning', true);
     
+    // Update UI manager with project status
+    this.uiManager.updateProjectStatus({
+      isRunning: true,
+      port: port,
+      url: `http://localhost:${port}`,
+      framework: this.config?.framework || 'unknown',
+      projectName: vscode.workspace.workspaceFolders?.[0]?.name || 'Project'
+    });
+    
     this.updateStatusBar();
     this.openPreview();
     
@@ -1556,6 +1705,9 @@ Created with ❤️ by the One-Click Local Preview Extension
     
     // Update context key for command palette
     vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+    
+    // Reset UI manager status
+    this.uiManager.resetProjectStatus();
     
     this.updateStatusBar();
     this.outputChannel.appendLine('Preview server stopped');

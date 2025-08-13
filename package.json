@@ -2,7 +2,7 @@
   "name": "cursor-preview",
   "displayName": "One-Click Local Preview",
   "description": "One-click local preview for designers - no terminal required",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -38,6 +38,21 @@
         "command": "preview.createProject",
         "title": "Preview: Create New Project",
         "category": "Preview"
+      },
+      {
+        "command": "preview.showUI",
+        "title": "Preview: Show Project UI",
+        "category": "Preview"
+      },
+      {
+        "command": "preview.showTemplates",
+        "title": "Preview: Show Templates",
+        "category": "Preview"
+      },
+      {
+        "command": "preview.showProjectControl",
+        "title": "Preview: Show Project Control",
+        "category": "Preview"
       }
     ],
     "menus": {
@@ -52,6 +67,18 @@
         },
         {
           "command": "preview.restart",
+          "when": "preview.isRunning"
+        },
+        {
+          "command": "preview.showUI",
+          "when": "true"
+        },
+        {
+          "command": "preview.showTemplates",
+          "when": "true"
+        },
+        {
+          "command": "preview.showProjectControl",
           "when": "preview.isRunning"
         }
       ]
@@ -87,6 +114,38 @@
           "name": "Preview Status",
           "alignment": "left",
           "priority": 100
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "preview",
+          "title": "Preview",
+          "icon": "$(rocket)"
+        }
+      ]
+    },
+    "views": {
+      "preview": [
+        {
+          "id": "preview.templates",
+          "name": "Project Templates",
+          "when": "!preview.isRunning"
+        },
+        {
+          "id": "preview.control",
+          "name": "Project Control",
+          "when": "preview.isRunning"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "preview.showUI",
+          "when": "view == preview.templates",
+          "group": "navigation"
         }
       ]
     }
