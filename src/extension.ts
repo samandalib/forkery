@@ -33,6 +33,7 @@ class PreviewManager {
   private outputChannel: vscode.OutputChannel;
   private status: PreviewStatus;
   private config: ProjectConfig | null = null;
+  private contextKey: vscode.ExtensionContext;
 
   // Project templates for quick start
   private projectTemplates: ProjectTemplate[] = [
@@ -59,7 +60,8 @@ class PreviewManager {
     }
   ];
 
-  constructor() {
+  constructor(context: vscode.ExtensionContext) {
+    this.contextKey = context;
     this.status = {
       isRunning: false,
       isStarting: false,
@@ -68,8 +70,9 @@ class PreviewManager {
       process: null
     };
 
-    // Create status bar item
+    // Create status bar item with the ID specified in package.json
     this.statusBarItem = vscode.window.createStatusBarItem(
+      'preview.status',
       vscode.StatusBarAlignment.Left,
       100
     );
@@ -81,6 +84,9 @@ class PreviewManager {
 
     // Register commands
     this.registerCommands();
+    
+    // Initialize context key
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
   }
 
   public initialize(): void {
@@ -91,10 +97,12 @@ class PreviewManager {
   }
 
   private registerCommands(): void {
-    vscode.commands.registerCommand('preview.run', () => this.startPreview());
-    vscode.commands.registerCommand('preview.stop', () => this.stopPreview());
-    vscode.commands.registerCommand('preview.restart', () => this.restartPreview());
-    vscode.commands.registerCommand('preview.createProject', () => this.createNewProject());
+    // These commands are already declared in package.json, so they should work
+    // But we need to ensure they're properly bound to the instance methods
+    vscode.commands.registerCommand('preview.run', this.startPreview.bind(this));
+    vscode.commands.registerCommand('preview.stop', this.stopPreview.bind(this));
+    vscode.commands.registerCommand('preview.restart', this.restartPreview.bind(this));
+    vscode.commands.registerCommand('preview.createProject', this.createNewProject.bind(this));
   }
 
   private async createNewProject(): Promise<void> {
@@ -634,6 +642,9 @@ export default App`;
     this.status.port = port;
     this.status.url = `http://localhost:${port}`;
     
+    // Update context key for command palette
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', true);
+    
     this.updateStatusBar();
     this.openPreview();
     
@@ -666,6 +677,9 @@ export default App`;
     this.status.isStarting = false;
     this.status.port = null;
     this.status.url = null;
+    
+    // Update context key for command palette
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
     
     this.updateStatusBar();
     this.outputChannel.appendLine('Preview server stopped');
@@ -746,7 +760,7 @@ let previewManager: PreviewManager;
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('Extension activating...');
-  previewManager = new PreviewManager();
+  previewManager = new PreviewManager(context);
   
   // Initialize after a short delay to ensure workspace is ready
   setTimeout(() => {
