@@ -14,6 +14,7 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 
 ### 🛠️ **Tools & Scripts**
 - **[test-extension.sh](./test-extension.sh)** - Quick testing and compilation script
+- **[GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** - Git workflow and development process
 
 ---
 
@@ -26,8 +27,9 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 
 ### **For Developers**
 1. **Read [DEVELOPMENT.md](./DEVELOPMENT.md)** - Complete development setup
-2. **Use [test-extension.sh](./test-extension.sh)** - Quick testing workflow
-3. **Follow [TESTING.md](./TESTING.md)** - Comprehensive testing procedures
+2. **Follow [GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** - Git workflow and branching strategy
+3. **Use [test-extension.sh](./test-extension.sh)** - Quick testing workflow
+4. **Follow [TESTING.md](./TESTING.md)** - Comprehensive testing procedures
 
 ---
 
@@ -40,6 +42,7 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 
 ### **Development**
 - **Setup** → [DEVELOPMENT.md](./DEVELOPMENT.md#prerequisites)
+- **Git Workflow** → [GIT_WORKFLOW.md](./GIT_WORKFLOW.md#development-workflow)
 - **Architecture** → [DEVELOPMENT.md](./DEVELOPMENT.md#project-structure)
 - **Key Components** → [DEVELOPMENT.md](./DEVELOPMENT.md#key-components)
 
