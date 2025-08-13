@@ -27,12 +27,46 @@ export class TemplatePanel {
   }
 
   public setView(view: vscode.WebviewView): void {
+    console.log('TemplatePanel: setView called with view:', view);
     this.view = view;
-    this.view.webview.html = this.getWebviewContent();
+    
+    // Set webview options for security
+    this.view.webview.options = {
+      enableScripts: true,
+      localResourceRoots: []
+    };
+    
+    // Set the HTML content
+    const htmlContent = this.getWebviewContent();
+    console.log('TemplatePanel: Setting HTML content, length:', htmlContent.length);
+    
+    // Add a simple test to see if basic webview works
+    const testHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Test</title>
+      </head>
+      <body style="background: #1e1e1e; color: white; padding: 20px;">
+        <h1>🚀 Template Panel Test</h1>
+        <p>If you can see this, the webview is working!</p>
+        <div style="background: #ff6b6b; padding: 10px; border-radius: 5px;">
+          <strong>SUCCESS:</strong> Webview is rendering! 🎉
+        </div>
+        <hr>
+        <h2>Full Template Content:</h2>
+        ${htmlContent}
+      </body>
+      </html>
+    `;
+    
+    this.view.webview.html = testHtml;
     
     // Handle messages from webview
     this.view.webview.onDidReceiveMessage(
       message => {
+        console.log('TemplatePanel: Received message:', message);
         switch (message.command) {
           case 'createProject':
             this.createProject(message.templateId);
@@ -40,11 +74,14 @@ export class TemplatePanel {
         }
       }
     );
+    
+    console.log('TemplatePanel: View setup complete');
   }
 
   private getWebviewContent(): string {
     const templates = this.getTemplates();
     
+    // Start with a simple test to see if basic webview works
     return `
       <!DOCTYPE html>
       <html lang="en">
@@ -192,6 +229,9 @@ export class TemplatePanel {
         <div class="header">
           <h1>🚀 Create New Project</h1>
           <p>Choose a template to get started with your project</p>
+          <div style="background: #ff6b6b; color: white; padding: 10px; border-radius: 5px; margin: 10px 0;">
+            <strong>DEBUG:</strong> If you can see this red box, the webview is working! 🎉
+          </div>
         </div>
         
         ${this.renderCategory('fullstack', 'Fullstack Applications', templates.filter(t => t.category === 'fullstack'))}

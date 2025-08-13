@@ -40,6 +40,7 @@ class PreviewManager {
   private config: ProjectConfig | null = null;
   private contextKey: vscode.ExtensionContext;
   private uiManager: UIManager;
+  private isCreatingProject: boolean = false;
 
   // Project templates for quick start
   private projectTemplates: ProjectTemplate[] = [
@@ -131,23 +132,37 @@ class PreviewManager {
     }
     
     this.updateStatusBar();
+    
+    // Show the appropriate UI based on current state
+    this.uiManager.showAppropriateUI();
+    
     console.log('PreviewManager: Initialization complete');
   }
 
   private registerViewProviders(): void {
+    console.log('PreviewManager: Registering view providers...');
+    
     // Register the template view provider
     const templateViewProvider = new TemplateViewProvider(TemplatePanel.getInstance());
+    console.log('PreviewManager: TemplateViewProvider created:', templateViewProvider);
+    
     vscode.window.registerWebviewViewProvider(
       TemplateViewProvider.viewType,
       templateViewProvider
     );
+    console.log('PreviewManager: TemplateViewProvider registered with type:', TemplateViewProvider.viewType);
 
     // Register the project control view provider
     const projectControlViewProvider = new ProjectControlViewProvider(ProjectControlPanel.getInstance());
+    console.log('PreviewManager: ProjectControlViewProvider created:', projectControlViewProvider);
+    
     vscode.window.registerWebviewViewProvider(
       ProjectControlViewProvider.viewType,
       projectControlViewProvider
     );
+    console.log('PreviewManager: ProjectControlViewProvider registered with type:', ProjectControlViewProvider.viewType);
+    
+    console.log('PreviewManager: All view providers registered successfully');
   }
 
   private registerCommands(): void {
@@ -187,14 +202,23 @@ class PreviewManager {
   }
 
   private async createNewProject(): Promise<void> {
-    // Check if workspace is empty
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-      vscode.window.showErrorMessage('No workspace folder found');
+    // Prevent duplicate execution
+    if (this.isCreatingProject) {
+      this.outputChannel.appendLine('⚠️ Project creation already in progress, ignoring duplicate command');
       return;
     }
+    
+    this.isCreatingProject = true;
+    
+    try {
+      // Check if workspace is empty
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return;
+      }
 
-    // Check if workspace already has content
+    // Check if workspace already has content and offer cleanup
     const files = fs.readdirSync(workspaceRoot);
     const hasContent = files.some(file => 
       !file.startsWith('.') && file !== '.git' && file !== 'node_modules'
@@ -202,10 +226,16 @@ class PreviewManager {
 
     if (hasContent) {
       const action = await vscode.window.showWarningMessage(
-        'This workspace already contains files. Create project anyway?',
-        'Yes', 'No'
+        'This workspace contains files that may conflict with new project creation. What would you like to do?',
+        'Clean Workspace', 'Create Anyway', 'Cancel'
       );
-      if (action !== 'Yes') return;
+      
+      if (action === 'Clean Workspace') {
+        await this.cleanWorkspace(workspaceRoot);
+      } else if (action === 'Cancel') {
+        return;
+      }
+      // If "Create Anyway" is selected, continue with existing files
     }
 
     // Show template selection
@@ -234,10 +264,13 @@ class PreviewManager {
 
     if (confirm !== 'Yes') return;
 
-    try {
-      await this.executeProjectCreation(selectedTemplate, workspaceRoot);
-    } catch (error) {
-      vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+      try {
+        await this.executeProjectCreation(selectedTemplate, workspaceRoot);
+      } catch (error) {
+        vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+      }
+    } finally {
+      this.isCreatingProject = false;
     }
   }
 
@@ -1298,6 +1331,41 @@ Created with ❤️ by the One-Click Local Preview Extension
       this.outputChannel.appendLine(`✅ Port ${port} cleanup completed`);
     } catch (error) {
       this.outputChannel.appendLine(`⚠️ Error killing processes on port ${port}: ${error}`);
+    }
+  }
+
+  private async cleanWorkspace(workspaceRoot: string): Promise<void> {
+    try {
+      this.outputChannel.appendLine('🧹 Cleaning workspace for new project...');
+      
+      // Get all files and directories
+      const items = fs.readdirSync(workspaceRoot);
+      
+      for (const item of items) {
+        const itemPath = path.join(workspaceRoot, item);
+        const stats = fs.statSync(itemPath);
+        
+        // Skip .git directory
+        if (item === '.git') {
+          this.outputChannel.appendLine('ℹ️ Preserving .git directory');
+          continue;
+        }
+        
+        if (stats.isDirectory()) {
+          // Remove directories (including .next, node_modules, etc.)
+          fs.rmSync(itemPath, { recursive: true, force: true });
+          this.outputChannel.appendLine(`🗑️ Removed directory: ${item}`);
+        } else {
+          // Remove files
+          fs.unlinkSync(itemPath);
+          this.outputChannel.appendLine(`🗑️ Removed file: ${item}`);
+        }
+      }
+      
+      this.outputChannel.appendLine('✅ Workspace cleaned successfully');
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Error cleaning workspace: ${error}`);
+      throw new Error(`Failed to clean workspace: ${error}`);
     }
   }
 

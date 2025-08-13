@@ -11,6 +11,9 @@ export class UIManager {
   private constructor() {
     this.templatePanel = TemplatePanel.getInstance();
     this.projectControlPanel = ProjectControlPanel.getInstance();
+    
+    // Initialize the context key to false (no project running)
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
   }
 
   public static getInstance(): UIManager {
@@ -24,25 +27,25 @@ export class UIManager {
    * Show the appropriate UI based on current project state
    */
   public showAppropriateUI(): void {
-    if (this.hasActiveProject()) {
-      this.showProjectControl();
-    } else {
-      this.showTemplateSelection();
-    }
+    // Activate the preview sidebar container to show our webview views
+    // The when clauses in package.json will automatically show the right view
+    vscode.commands.executeCommand('workbench.view.extension.preview');
   }
 
   /**
    * Show template selection panel (for blank workspace)
    */
   public showTemplateSelection(): void {
-    this.templatePanel.show();
+    // Activate the preview sidebar container to show templates
+    vscode.commands.executeCommand('workbench.view.extension.preview');
   }
 
   /**
    * Show project control panel (for active project)
    */
   public showProjectControl(): void {
-    this.projectControlPanel.show();
+    // Activate the preview sidebar container to show project control
+    vscode.commands.executeCommand('workbench.view.extension.preview');
   }
 
   /**
@@ -51,6 +54,9 @@ export class UIManager {
   public updateProjectStatus(status: ProjectStatus): void {
     this.currentProjectStatus = status;
     this.projectControlPanel.updateStatus(status);
+    
+    // Set the context key that controls which view is shown
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', status.isRunning);
   }
 
   /**
@@ -80,5 +86,8 @@ export class UIManager {
       framework: '',
       projectName: ''
     });
+    
+    // Set the context key to false when project is stopped
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
   }
 }

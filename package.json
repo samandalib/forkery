@@ -129,11 +129,13 @@
     "views": {
       "preview": [
         {
+          "type": "webview",
           "id": "preview.templates",
           "name": "Project Templates",
           "when": "!preview.isRunning"
         },
         {
+          "type": "webview",
           "id": "preview.control",
           "name": "Project Control",
           "when": "preview.isRunning"

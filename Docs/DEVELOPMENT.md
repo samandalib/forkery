@@ -1,251 +1,305 @@
-# Development Guide
+# 👨‍💻 Development Guide
 
-This guide will help you set up the development environment for the One-Click Local Preview extension.
+> **Complete setup and development guide for the One-Click Local Preview extension.**
 
-## 🛠️ Prerequisites
+## 🚀 Quick Setup
 
-- **Node.js** 16+ and npm
-- **Cursor** or **VS Code** with Extension Development Host
-- **Git** for version control
+### **Prerequisites**
+- ✅ Cursor or VS Code installed
+- ✅ Node.js 16+ installed
+- ✅ Git for version control
 
-## 🚀 Getting Started
-
-### 1. Clone and Install
-
+### **Installation**
 ```bash
-git clone <repository-url>
-cd cursor-preview
+# Clone the repository
+git clone <your-repo-url>
+cd forkery
+
+# Install dependencies
 npm install
-```
 
-### 2. Compile the Extension
-
-```bash
+# Compile the extension
 npm run compile
-```
 
-### 3. Run in Debug Mode
-
-1. Open the project in Cursor/VS Code
-2. Press `F5` to start debugging
-3. A new Extension Development Host window will open
-4. Open a frontend project in the new window
-5. Look for the ▶ Preview button in the status bar
-
-## 🧪 Testing
-
-### Test with Sample Project
-
-The `sample-project/` directory contains a Next.js project for testing:
-
-1. Open the `sample-project/` folder in the Extension Development Host
-2. Click the ▶ Preview button
-3. The extension should:
-   - Detect Next.js framework
-   - Use port 3000
-   - Run `npm run dev`
-   - Open preview in Simple Browser
-
-### Test with Real Projects
-
-Try the extension with various frameworks:
-
-- **Next.js**: `npx create-next-app@latest my-next-app`
-- **Vite**: `npm create vite@latest my-vite-app -- --template react`
-- **Astro**: `npm create astro@latest my-astro-app`
-- **Gatsby**: `npx gatsby new my-gatsby-app`
-
-## 🔧 Development Workflow
-
-### 1. Make Changes
-
-- Edit files in `src/`
-- The main logic is in `src/extension.ts`
-
-### 2. Compile Changes
-
-```bash
-npm run compile
-```
-
-### 3. Reload Extension
-
-- In the Extension Development Host: `Cmd+Shift+P` → "Developer: Reload Window"
-- Or restart debugging with `F5`
-
-### 4. Test Changes
-
-- Check the Debug Console for logs
-- Use the "Preview Logs" output panel
-- Test with different project types
-
-## 📁 Project Structure
-
-```
-cursor-preview/
-├── src/
-│   └── extension.ts          # Main extension logic
-├── sample-project/           # Test project
-├── package.json              # Extension manifest
-├── tsconfig.json            # TypeScript config
-├── .eslintrc.json           # Linting rules
-├── README.md                # User documentation
-└── DEVELOPMENT.md           # This file
-```
-
-## 🎯 Key Components
-
-### PreviewManager Class
-
-The main class that handles:
-- Project detection and configuration
-- Process spawning and management
-- Status updates and UI
-- Preview opening
-
-### Framework Detection
-
-Located in `detectProjectConfig()`:
-- Scans `package.json` for dependencies
-- Identifies framework-specific ports
-- Determines package manager
-- Selects appropriate start script
-
-### Process Management
-
-Handled in `spawnProcess()`:
-- Spawns development server
-- Monitors output for ready signals
-- Handles graceful shutdown
-- Port availability checking
-
-## 🐛 Debugging
-
-### Extension Logs
-
-- Check the Debug Console in the Extension Development Host
-- Look for the "Preview Logs" output panel
-- Use `console.log()` statements in the code
-
-### Common Issues
-
-**Extension not activating**
-- Check `package.json` activation events
-- Verify the main file path is correct
-- Check for TypeScript compilation errors
-
-**Commands not working**
-- Verify command registration in `registerCommands()`
-- Check command palette for available commands
-- Ensure proper context key usage
-
-**Preview not opening**
-- Check browser mode setting
-- Verify Simple Browser extension is available
-- Test with external browser mode
-
-## 📦 Building for Distribution
-
-### 1. Install vsce
-
-```bash
-npm install -g @vscode/vsce
-```
-
-### 2. Build Package
-
-```bash
+# Package the extension
 vsce package
 ```
 
-This creates a `.vsix` file that can be installed in Cursor/VS Code.
-
-### 3. Install Locally
-
+### **Development Workflow**
 ```bash
-code --install-extension cursor-preview-0.1.0.vsix
-```
-
-## 🧪 Testing Different Scenarios
-
-### Framework Detection
-
-Test with projects that have:
-- Different package managers (npm, yarn, pnpm)
-- Various framework dependencies
-- Custom port configurations
-- Missing dependencies
-
-### Error Handling
-
-Test error scenarios:
-- No `package.json` found
-- Missing dependencies
-- Port already in use
-- Server fails to start
-- Process crashes
-
-### UI States
-
-Verify status bar shows:
-- ▶ Preview (idle)
-- ⟳ Starting... (starting)
-- ● Preview: Running on :PORT (running)
-
-## 🔄 Continuous Development
-
-### Watch Mode
-
-For automatic compilation during development:
-
-```bash
+# Watch mode for development
 npm run watch
-```
 
-### Linting
-
-Check code quality:
-
-```bash
+# Lint code
 npm run lint
+
+# Run tests
+npm test
 ```
 
-### Type Checking
+## 🏗️ Architecture Overview
 
-Verify TypeScript types:
+### **Core Components**
+- **`PreviewManager`** - Main extension logic, project detection, process management
+- **`UIManager`** - Coordinates UI display and state management
+- **`TemplatePanel`** - Renders project template selection interface
+- **`ProjectControlPanel`** - Renders project control interface
+- **`ViewProviders`** - VS Code integration for sidebar views
 
+### **Data Flow**
+```
+User Action → Command → PreviewManager → UIManager → ViewProvider → Webview
+```
+
+## 🎨 UI Architecture & What Makes It Work
+
+### **Critical Success Factors**
+
+#### **1. ✅ Package.json Configuration**
+The UI only works when these elements are properly configured:
+
+```json
+{
+  "viewsContainers": {
+    "activitybar": [
+      {
+        "id": "preview",
+        "title": "Preview", 
+        "icon": "$(rocket)"
+      }
+    ]
+  },
+  "views": {
+    "preview": [
+      {
+        "type": "webview",           // ← CRITICAL: Must specify "webview" type
+        "id": "preview.templates",   // ← Must match ViewProvider.viewType
+        "name": "Project Templates",
+        "when": "!preview.isRunning" // ← Context key controls view switching
+      },
+      {
+        "type": "webview",
+        "id": "preview.control",
+        "name": "Project Control", 
+        "when": "preview.isRunning"
+      }
+    ]
+  }
+}
+```
+
+#### **2. ✅ View Provider Registration**
+Must be registered in the correct order during extension activation:
+
+```typescript
+private registerViewProviders(): void {
+  // Register BEFORE commands to ensure views are available
+  const templateViewProvider = new TemplateViewProvider(TemplatePanel.getInstance());
+  vscode.window.registerWebviewViewProvider(
+    TemplateViewProvider.viewType,  // Must match package.json "id"
+    templateViewProvider
+  );
+}
+```
+
+#### **3. ✅ Context Key Management**
+The `when` clauses depend on context keys being properly set:
+
+```typescript
+// Must be set to control which view is shown
+vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+```
+
+#### **4. ✅ Webview Content Setup**
+Webview must be properly initialized with content:
+
+```typescript
+public setView(view: vscode.WebviewView): void {
+  this.view = view;
+  
+  // Set security options
+  this.view.webview.options = {
+    enableScripts: true,
+    localResourceRoots: []
+  };
+  
+  // Set HTML content
+  this.view.webview.html = this.getWebviewContent();
+}
+```
+
+### **What Can Break the UI**
+
+#### **❌ Common Failure Points**
+
+1. **Missing `"type": "webview"`**
+   - **Symptom**: "There is no data provider registered" error
+   - **Cause**: VS Code doesn't know how to render the view
+   - **Fix**: Always include `"type": "webview"` in package.json views
+
+2. **View ID Mismatch**
+   - **Symptom**: Views don't appear or show errors
+   - **Cause**: `package.json` "id" doesn't match `ViewProvider.viewType`
+   - **Fix**: Ensure IDs are identical between package.json and ViewProvider
+
+3. **Context Key Not Set**
+   - **Symptom**: Views don't switch or always show same content
+   - **Cause**: `preview.isRunning` context key not being updated
+   - **Fix**: Call `setContext` whenever project status changes
+
+4. **View Provider Not Registered**
+   - **Symptom**: "There is no data provider registered" error
+   - **Cause**: `registerWebviewViewProvider` not called or called too late
+   - **Fix**: Register in constructor, before commands
+
+5. **Webview HTML Not Set**
+   - **Symptom**: Empty or broken webview content
+   - **Cause**: `webview.html` not assigned or HTML is malformed
+   - **Fix**: Ensure HTML content is valid and properly set
+
+#### **❌ Architecture Anti-Patterns**
+
+1. **Custom Containers**
+   - **Problem**: Creating custom `viewsContainers` can cause conflicts
+   - **Better**: Use built-in containers like `explorer` or keep custom ones simple
+
+2. **Complex When Clauses**
+   - **Problem**: Overly complex `when` conditions can break view switching
+   - **Better**: Use simple boolean context keys
+
+3. **Late Registration**
+   - **Problem**: Registering view providers after commands are executed
+   - **Better**: Register in constructor, before any user interaction
+
+### **Debugging the UI**
+
+#### **🔍 Debug Steps**
+
+1. **Check Console Logs**
+   ```typescript
+   console.log('TemplateViewProvider: resolveWebviewView called');
+   console.log('TemplatePanel: setView called with view:', view);
+   ```
+
+2. **Verify View Registration**
+   ```typescript
+   console.log('PreviewManager: TemplateViewProvider registered with type:', TemplateViewProvider.viewType);
+   ```
+
+3. **Test Basic Webview**
+   ```typescript
+   // Use simple test HTML first
+   const testHtml = `<html><body><h1>Test</h1></body></html>`;
+   this.view.webview.html = testHtml;
+   ```
+
+4. **Check Context Keys**
+   ```typescript
+   // Verify context key is set
+   vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+   ```
+
+#### **🔧 Common Fixes**
+
+1. **Restart Extension Host**
+   - `Cmd+Shift+P` → "Developer: Reload Window"
+
+2. **Check Extension Activation**
+   - Ensure extension activates on startup
+   - Check activation events in package.json
+
+3. **Verify File Structure**
+   - All UI files must be compiled to `out/ui/`
+   - Check import paths are correct
+
+4. **Clear Extension Cache**
+   - Delete `.vscode/extensions` folder
+   - Reinstall extension
+
+### **UI Testing Checklist**
+
+- [ ] Rocket icon appears in activity bar
+- [ ] Clicking rocket opens preview sidebar
+- [ ] Template view shows when no project running
+- [ ] Project control view shows when project running
+- [ ] Views switch automatically based on context
+- [ ] Webview content renders properly
+- [ ] No "data provider" errors in console
+
+## 🔧 Development Commands
+
+### **Build Commands**
 ```bash
-npx tsc --noEmit
+npm run compile      # Compile TypeScript
+npm run watch        # Watch mode for development
+npm run lint         # Run ESLint
+npm run test         # Run test suite
 ```
+
+### **Packaging Commands**
+```bash
+vsce package         # Create .vsix file
+vsce publish         # Publish to marketplace (if configured)
+```
+
+## 🧪 Testing
+
+### **Manual Testing**
+1. Install extension from .vsix
+2. Open empty workspace
+3. Test project creation
+4. Test preview functionality
+5. Test UI interactions
+
+### **Automated Testing**
+```bash
+npm test             # Run test suite
+npm run test:watch   # Watch mode for tests
+```
+
+## 🚀 Deployment
+
+### **Local Testing**
+```bash
+# Package extension
+vsce package
+
+# Install in VS Code/Cursor
+# Extensions → Install from VSIX
+```
+
+### **Production Release**
+1. Update version in package.json
+2. Run tests: `npm test`
+3. Package: `vsce package`
+4. Test .vsix file
+5. Commit and tag release
 
 ## 📚 Resources
 
 - [VS Code Extension API](https://code.visualstudio.com/api)
-- [VS Code Extension Samples](https://github.com/microsoft/vscode-extension-samples)
-- [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- [Node.js Child Process](https://nodejs.org/api/child_process.html)
+- [Webview API Guide](https://code.visualstudio.com/api/extension-guides/webview)
+- [Extension Samples](https://github.com/microsoft/vscode-extension-samples)
+- [Extension Marketplace](https://marketplace.visualstudio.com/)
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Update documentation
-6. Submit a pull request
-
-## 📝 Code Style
-
+### **Code Style**
 - Use TypeScript strict mode
 - Follow ESLint rules
-- Use meaningful variable names
 - Add JSDoc comments for public methods
-- Handle errors gracefully
-- Use async/await for asynchronous operations
+- Test all changes manually
+
+### **Pull Request Process**
+1. Create feature branch from `develop`
+2. Make changes and test thoroughly
+3. Update documentation
+4. Submit PR to `develop` branch
+5. Wait for review and merge
 
 ---
 
-Happy coding! 🚀
+**Remember**: The UI is fragile and depends on precise configuration. Always test changes thoroughly and document any new patterns discovered.
 
 
 

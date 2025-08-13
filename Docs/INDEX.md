@@ -50,6 +50,7 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 - **Test Scenarios** → [TESTING.md](./TESTING.md#test-scenarios)
 - **Debugging** → [TESTING.md](./TESTING.md#debugging)
 - **Troubleshooting** → [TESTING.md](./TESTING.md#troubleshooting)
+- **UI Issues** → [UI_TROUBLESHOOTING.md](./UI_TROUBLESHOOTING.md) - Complete UI debugging guide
 
 ---
 
