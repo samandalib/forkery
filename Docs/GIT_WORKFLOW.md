@@ -108,7 +108,12 @@ git checkout develop
 - **Date**: August 13, 2024
 - **Major Fixes**: Port handling, preview functionality, Vite config synchronization
 - **Status**: Successfully released and merged to main
-- **Next Target**: Version 0.1.2 or 0.2.0 with fullstack templates
+
+#### Major Milestone: Version 0.1.2 Fullstack ✅
+- **Date**: August 13, 2024
+- **Major Features**: Complete fullstack project templates with Node.js backends
+- **Status**: Successfully implemented and tested on develop branch
+- **Next Target**: Version 0.2.0 with additional frameworks (Gatsby, Astro, Remix)
 
 ## 📝 Commit Message Convention
 
@@ -160,24 +165,25 @@ git commit -m "fix: resolve preview button not working
 - ✅ **RESOLVED: Port conflict resolution and Vite config synchronization**
 - ✅ **RESOLVED: Status bar preview button for existing projects**
 
-### Version 0.1.2 (In Development on `develop`)
-- ✅ **NEW: Fullstack project templates** with Node.js backends
-- ✅ **NEW: Express.js + React** fullstack template
-- ✅ **NEW: Node.js + Next.js** fullstack template
-- ✅ **NEW: Concurrent backend + frontend** development servers
-- ✅ **NEW: Automatic fullstack project structure** generation
-- ✅ **NEW: Backend API endpoints** (health check, sample data)
-- ✅ **NEW: Frontstack integration** with backend APIs
-- ✅ **NEW: Fullstack process management** and cleanup
-- ✅ **NEW: Next.js naming restriction handling** with alternative template fallback
+### Version 0.1.2 (COMPLETED ✅ on `develop`)
+- ✅ **Fullstack project templates** with Node.js backends
+- ✅ **Express.js + React** fullstack template
+- ✅ **Node.js + Next.js** fullstack template
+- ✅ **Concurrent backend + frontend** development servers
+- ✅ **Automatic fullstack project structure** generation
+- ✅ **Backend API endpoints** (health check, sample data)
+- ✅ **Frontend integration** with backend APIs
+- ✅ **Fullstack process management** and cleanup
+- ✅ **Next.js naming restriction handling** with alternative template fallback
 
 ### Active Development (on `develop`)
 - ✅ Port handling issues resolved
 - ✅ Enhanced debugging and logging
 - ✅ Process cleanup and management
-- 🚧 **Fullstack project templates** (Node.js, Express, etc.) - **IN PROGRESS**
-- 🔄 Additional framework support
+- ✅ **Fullstack project templates** (Node.js, Express, etc.) - **COMPLETED**
+- 🔄 Additional framework support (Gatsby, Astro, Remix)
 - 🔄 Browser opening improvements
+- 🔄 Version 0.2.0 planning
 
 ## 🚫 What NOT to Do
 

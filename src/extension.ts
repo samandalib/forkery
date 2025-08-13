@@ -1086,9 +1086,56 @@ Created with ❤️ by the One-Click Local Preview Extension
     try {
       this.outputChannel.appendLine('🔍 Checking for existing fullstack processes...');
       
-      // Kill both backend and frontend processes
-      const processes = ['node', 'npm', 'yarn', 'pnpm'];
+      // Kill processes using specific ports
+      const ports = [5000, 3000]; // Backend and frontend ports
       
+      for (const port of ports) {
+        try {
+          // Find processes using the port
+          const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
+            stdio: 'pipe',
+            shell: true
+          });
+
+          let processIds = '';
+          findProcess.stdout?.on('data', (data) => {
+            processIds += data.toString();
+          });
+
+          await new Promise<void>((resolve) => {
+            findProcess.on('close', async (code) => {
+              if (code === 0 && processIds.trim()) {
+                const pids = processIds.trim().split('\n');
+                for (const pid of pids) {
+                  if (pid.trim()) {
+                    try {
+                      const killProcess = child_process.spawn('kill', ['-9', pid.trim()], {
+                        stdio: 'pipe',
+                        shell: true
+                      });
+                      
+                      await new Promise<void>((resolveKill) => {
+                        killProcess.on('close', () => {
+                          this.outputChannel.appendLine(`✅ Killed process ${pid.trim()} using port ${port}`);
+                          resolveKill();
+                        });
+                      });
+                    } catch (error) {
+                      this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
+                    }
+                  }
+                }
+              }
+              resolve();
+            });
+          });
+        } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Error checking port ${port}: ${error}`);
+        }
+      }
+      
+      // Also kill general Node.js processes
+      const processes = ['node', 'npm', 'yarn', 'pnpm'];
       for (const processName of processes) {
         try {
           const killProcess = child_process.spawn('pkill', ['-f', processName], {
@@ -1097,6 +1144,15 @@ Created with ❤️ by the One-Click Local Preview Extension
           });
 
           await new Promise<void>((resolve) => {
+            killProcess.on('close', (code) => {
+              if (code === 0) {
+                this.outputChannel.appendLine(`✅ Killed existing ${processName} processes`);
+              } else if (code === 1) {
+                this.outputChannel.appendLine(`ℹ️ No existing ${processName} processes found`);
+              }
+              resolve();
+            });
+
             killProcess.on('error', (error) => {
               this.outputChannel.appendLine(`⚠️ Error killing ${processName} processes: ${error}`);
               resolve();
@@ -1140,6 +1196,60 @@ Created with ❤️ by the One-Click Local Preview Extension
           resolve();
         } else {
           reject(new Error(`Failed to install dependencies (exit code: ${code})`));
+        }
+      });
+    });
+  }
+
+  private async installFullstackDependencies(): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    this.outputChannel.appendLine('Installing fullstack dependencies...');
+    
+    try {
+      // Install backend dependencies
+      this.outputChannel.appendLine('Installing backend dependencies...');
+      await this.installDependenciesInDirectory(path.join(workspaceRoot, 'backend'));
+      
+      // Install frontend dependencies
+      this.outputChannel.appendLine('Installing frontend dependencies...');
+      await this.installDependenciesInDirectory(path.join(workspaceRoot, 'frontend'));
+      
+      this.outputChannel.appendLine('✅ Fullstack dependencies installed successfully');
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Error installing fullstack dependencies: ${error}`);
+      throw error;
+    }
+  }
+
+  private async installDependenciesInDirectory(dir: string): Promise<void> {
+    if (!fs.existsSync(dir)) {
+      this.outputChannel.appendLine(`⚠️ Directory ${dir} does not exist, skipping`);
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      const installProcess = child_process.spawn(
+        this.config?.packageManager === 'yarn' ? 'yarn' : 'npm',
+        ['install'],
+        { cwd: dir, stdio: 'pipe' }
+      );
+
+      installProcess.stdout?.on('data', (data) => {
+        this.outputChannel.appendLine(`[${path.basename(dir)}] ${data.toString()}`);
+      });
+
+      installProcess.stderr?.on('data', (data) => {
+        this.outputChannel.appendLine(`[${path.basename(dir)}] ${data.toString()}`);
+      });
+
+      installProcess.on('close', (code) => {
+        if (code === 0) {
+          this.outputChannel.appendLine(`✅ Dependencies installed in ${path.basename(dir)}`);
+          resolve();
+        } else {
+          reject(new Error(`Failed to install dependencies in ${path.basename(dir)} (exit code: ${code})`));
         }
       });
     });
@@ -1200,6 +1310,11 @@ Created with ❤️ by the One-Click Local Preview Extension
       
       // Check dependencies
       await this.checkDependencies();
+      
+      // For fullstack projects, install frontend dependencies separately
+      if (this.config.framework === 'fullstack') {
+        await this.installFullstackDependencies();
+      }
 
       // Validate Vite config if needed
       await this.validateViteConfig();

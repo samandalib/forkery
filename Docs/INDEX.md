@@ -72,27 +72,25 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 - Better stop/restart controls and notifications
 - Added process cleanup to prevent port conflicts
 
-### **🚀 Version 0.1.2 New Features (Current Development)**
-- **NEW: Fullstack project templates** with Node.js backends
-- **NEW: Express.js + React** fullstack template
-- **NEW: Node.js + Next.js** fullstack template
-- **NEW: Concurrent backend + frontend** development servers
-- **NEW: Automatic fullstack project structure** generation
-- **NEW: Backend API endpoints** (health check, sample data)
-- **NEW: Frontend integration** with backend APIs
-- **NEW: Fullstack process management** and cleanup
-- **NEW: Next.js naming restriction handling** with alternative template fallback
+### **🚀 Version 0.1.2 New Features (COMPLETED ✅)**
+- ✅ **Fullstack project templates** with Node.js backends
+- ✅ **Express.js + React** fullstack template
+- ✅ **Node.js + Next.js** fullstack template
+- ✅ **Concurrent backend + frontend** development servers
+- ✅ **Automatic fullstack project structure** generation
+- ✅ **Backend API endpoints** (health check, sample data)
+- ✅ **Frontend integration** with backend APIs
+- ✅ **Fullstack process management** and cleanup
+- ✅ **Next.js naming restriction handling** with alternative template fallback
 
 ### **❌ Known Issues**
 - Preview button not consistently opening Simple Browser
 - Some framework templates need testing
 
 ### **🚧 In Progress**
-- **Fullstack project templates** - Express.js + React, Node.js + Next.js
-- **Concurrent server management** - Backend (5000) + Frontend (3000)
-- **Backend API development** - Health checks, sample endpoints
 - Preview functionality improvements
 - Browser opening reliability improvements
+- Additional framework support (Gatsby, Astro, Remix)
 
 ---
 
@@ -107,8 +105,8 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 ### **Version History**
 - **v0.1.0**: Initial extension with basic functionality
 - **v0.1.1**: Port handling improvements and preview fixes
-- **v0.1.2**: Fullstack project templates with Node.js backends (current development)
-- **Current**: Working on fullstack project creation and concurrent server management
+- **v0.1.2**: Fullstack project templates with Node.js backends (COMPLETED ✅)
+- **Current**: Ready for v0.2.0 planning and additional framework support
 
 ---
 
