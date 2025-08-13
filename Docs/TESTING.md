@@ -200,8 +200,25 @@ The extension is working correctly when:
 1. **Empty Workspace**: Shows "🚀 New Project" and creates projects successfully
 2. **Existing Project**: Shows "▶ Preview" and launches previews correctly
 3. **Process Management**: Starts, stops, and restarts servers gracefully
-4. **Error Handling**: Provides helpful messages and recovery options
-5. **User Experience**: All interactions feel smooth and intuitive
+4. **Port Management**: Automatically handles port conflicts and finds available ports
+5. **Error Handling**: Provides helpful messages and recovery options
+6. **User Experience**: All interactions feel smooth and intuitive
+
+## 🔧 Port Handling (RESOLVED ✅)
+
+### What Was Fixed:
+- **Port Mismatch**: Vite projects now correctly use port 5173
+- **Port Conflicts**: Automatic detection and resolution of busy ports
+- **Config Synchronization**: Extension port always matches Vite config port
+- **Process Cleanup**: Kills existing processes to prevent conflicts
+
+### How It Works:
+1. Extension detects framework and sets appropriate default port
+2. Vite config is validated and port is synchronized
+3. If port is busy, automatically finds next available port
+4. Updates Vite config to use the new port
+5. Cleans up any existing processes
+6. Starts server on available port
 
 ## 🚀 Next Steps After Testing
 

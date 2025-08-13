@@ -89,9 +89,21 @@ class PreviewManager {
     vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
   }
 
-  public initialize(): void {
+  public async initialize(): Promise<void> {
     // Initialize the status bar after workspace is ready
     console.log('PreviewManager: Initializing...');
+    
+    try {
+      // Try to detect existing project configuration
+      if (vscode.workspace.workspaceFolders?.[0]) {
+        this.outputChannel.appendLine('🔍 Detecting existing project configuration...');
+        this.config = await this.detectProjectConfig();
+        this.outputChannel.appendLine(`✅ Project detected: ${this.config.framework} on port ${this.config.port}`);
+      }
+    } catch (error) {
+      this.outputChannel.appendLine(`ℹ️ No existing project detected: ${error}`);
+    }
+    
     this.updateStatusBar();
     console.log('PreviewManager: Initialization complete');
   }
@@ -99,10 +111,22 @@ class PreviewManager {
   private registerCommands(): void {
     // These commands are already declared in package.json, so they should work
     // But we need to ensure they're properly bound to the instance methods
-    vscode.commands.registerCommand('preview.run', this.startPreview.bind(this));
-    vscode.commands.registerCommand('preview.stop', this.stopPreview.bind(this));
-    vscode.commands.registerCommand('preview.restart', this.restartPreview.bind(this));
-    vscode.commands.registerCommand('preview.createProject', this.createNewProject.bind(this));
+    vscode.commands.registerCommand('preview.run', () => {
+      this.outputChannel.appendLine('🎯 Preview: Run command executed');
+      this.startPreview();
+    });
+    vscode.commands.registerCommand('preview.stop', () => {
+      this.outputChannel.appendLine('🛑 Preview: Stop command executed');
+      this.stopPreview();
+    });
+    vscode.commands.registerCommand('preview.restart', () => {
+      this.outputChannel.appendLine('🔄 Preview: Restart command executed');
+      this.restartPreview();
+    });
+    vscode.commands.registerCommand('preview.createProject', () => {
+      this.outputChannel.appendLine('🚀 Preview: Create Project command executed');
+      this.createNewProject();
+    });
   }
 
   private async createNewProject(): Promise<void> {
@@ -259,8 +283,9 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: ${template.port},
-    strictPort: true
+    port: 5173,
+    strictPort: true,
+    open: false
   }
 })`;
 
@@ -398,19 +423,47 @@ export default App`;
     // Determine default port
     let port = 3000;
     switch (framework) {
-      case 'vite': port = 5173; break;
-      case 'next': port = 3000; break;
-      case 'gatsby': port = 8000; break;
-      case 'astro': port = 4321; break;
-      case 'remix': port = 3000; break;
-      default: port = 3000;
+      case 'vite': 
+        port = 5173; 
+        this.outputChannel.appendLine(`🎯 Detected Vite project - using port 5173`);
+        break;
+      case 'next': 
+        port = 3000; 
+        this.outputChannel.appendLine(`🎯 Detected Next.js project - using port 3000`);
+        break;
+      case 'gatsby': 
+        port = 8000; 
+        this.outputChannel.appendLine(`🎯 Detected Gatsby project - using port 8000`);
+        break;
+      case 'astro': 
+        port = 4321; 
+        this.outputChannel.appendLine(`🎯 Detected Astro project - using port 4321`);
+        break;
+      case 'remix': 
+        port = 3000; 
+        this.outputChannel.appendLine(`🎯 Detected Remix project - using port 3000`);
+        break;
+      default: 
+        port = 3000; 
+        this.outputChannel.appendLine(`🎯 Generic project - using port 3000`);
+        break;
     }
 
     // Check if custom port is configured
     const config = vscode.workspace.getConfiguration('preview');
     const customPort = config.get<number>('port');
     if (customPort) {
-      port = customPort;
+      this.outputChannel.appendLine(`⚠️ Custom port override detected: ${customPort} (framework default: ${port})`);
+      
+      // For Vite projects, always respect the Vite config port, not custom override
+      if (framework === 'vite') {
+        this.outputChannel.appendLine(`🎯 Vite project detected - ignoring custom port override, using Vite config port`);
+        // We'll validate the Vite config port later
+      } else {
+        port = customPort;
+      }
+    } else {
+      this.outputChannel.appendLine(`✅ Using framework default port: ${port}`);
     }
 
     return { framework, port, script, packageManager };
@@ -432,6 +485,103 @@ export default App`;
       } else {
         throw new Error('Dependencies must be installed to run preview');
       }
+    }
+  }
+
+  private async validateViteConfig(): Promise<void> {
+    if (this.config?.framework !== 'vite') return;
+    
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    const viteConfigPath = path.join(workspaceRoot, 'vite.config.js');
+    if (fs.existsSync(viteConfigPath)) {
+      try {
+        const configContent = fs.readFileSync(viteConfigPath, 'utf8');
+        
+        // Extract the actual port from Vite config
+        const portMatch = configContent.match(/port:\s*(\d+)/);
+        if (portMatch) {
+          const viteConfigPort = parseInt(portMatch[1]);
+          this.outputChannel.appendLine(`🔍 Vite config port: ${viteConfigPort}`);
+          
+          // Always use the Vite config port for Vite projects
+          if (this.config.port !== viteConfigPort) {
+            this.outputChannel.appendLine(`🔄 Updating extension port from ${this.config.port} to Vite config port ${viteConfigPort}`);
+            this.config.port = viteConfigPort;
+          }
+          
+          if (viteConfigPort !== 5173) {
+            this.outputChannel.appendLine(`⚠️ Vite config port ${viteConfigPort} is not standard (5173), but will use it`);
+          }
+        } else {
+          this.outputChannel.appendLine(`⚠️ No port found in Vite config, using default 5173`);
+          this.config.port = 5173;
+        }
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Could not validate Vite config: ${error}`);
+      }
+    } else {
+      this.outputChannel.appendLine(`⚠️ No Vite config found, using default port 5173`);
+      this.config.port = 5173;
+    }
+  }
+
+  private async updateViteConfigPort(newPort: number): Promise<void> {
+    if (this.config?.framework !== 'vite') return;
+    
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    const viteConfigPath = path.join(workspaceRoot, 'vite.config.js');
+    if (fs.existsSync(viteConfigPath)) {
+      try {
+        const configContent = fs.readFileSync(viteConfigPath, 'utf8');
+        
+        // Update the port in the Vite config
+        const updatedConfig = configContent.replace(
+          /port:\s*\d+/,
+          `port: ${newPort}`
+        );
+        
+        fs.writeFileSync(viteConfigPath, updatedConfig);
+        this.outputChannel.appendLine(`✅ Updated Vite config to use port ${newPort}`);
+        
+        // Also update our config to match
+        this.config.port = newPort;
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Could not update Vite config: ${error}`);
+      }
+    }
+  }
+
+  private async killExistingViteProcesses(): Promise<void> {
+    try {
+      this.outputChannel.appendLine('🔍 Checking for existing Vite processes...');
+      
+      // Use pkill to find and kill Vite processes
+      const killProcess = child_process.spawn('pkill', ['-f', 'vite'], {
+        stdio: 'pipe',
+        shell: true
+      });
+
+      return new Promise((resolve) => {
+        killProcess.on('close', (code) => {
+          if (code === 0) {
+            this.outputChannel.appendLine('✅ Killed existing Vite processes');
+          } else {
+            this.outputChannel.appendLine('ℹ️ No existing Vite processes found');
+          }
+          resolve();
+        });
+
+        killProcess.on('error', () => {
+          this.outputChannel.appendLine('ℹ️ Could not check for existing Vite processes');
+          resolve();
+        });
+      });
+    } catch (error) {
+      this.outputChannel.appendLine(`⚠️ Error killing existing Vite processes: ${error}`);
     }
   }
 
@@ -469,10 +619,24 @@ export default App`;
 
   private async findAvailablePort(desiredPort: number): Promise<number> {
     try {
+      this.outputChannel.appendLine(`🔍 Checking if port ${desiredPort} is available...`);
       const availablePort = await detectPort(desiredPort);
+      
+      if (availablePort === desiredPort) {
+        this.outputChannel.appendLine(`✅ Port ${desiredPort} is available`);
+      } else {
+        this.outputChannel.appendLine(`⚠️ Port ${desiredPort} was busy, using ${availablePort} instead`);
+        
+        // For Vite projects, update the Vite config to use the new port
+        if (this.config?.framework === 'vite') {
+          await this.updateViteConfigPort(availablePort);
+        }
+      }
+      
       return availablePort;
     } catch (error) {
-      this.outputChannel.appendLine(`Port detection failed: ${error}`);
+      this.outputChannel.appendLine(`❌ Port detection failed: ${error}`);
+      this.outputChannel.appendLine(`🔄 Falling back to requested port ${desiredPort}`);
       return desiredPort;
     }
   }
@@ -480,20 +644,39 @@ export default App`;
   private async startPreview(): Promise<void> {
     try {
       if (this.status.isRunning || this.status.isStarting) {
+        this.outputChannel.appendLine('⚠️ Preview already running or starting');
         return;
       }
 
       this.status.isStarting = true;
       this.updateStatusBar();
 
+      this.outputChannel.appendLine('🚀 Starting preview...');
+
+      // Kill any existing Vite processes that might be using the port
+      if (this.config?.framework === 'vite') {
+        await this.killExistingViteProcesses();
+      }
+
       // Detect project configuration
       this.config = await this.detectProjectConfig();
+      
+      // Log the detected configuration for debugging
+      this.outputChannel.appendLine(`🔍 Detected project config:`);
+      this.outputChannel.appendLine(`   Framework: ${this.config.framework}`);
+      this.outputChannel.appendLine(`   Port: ${this.config.port}`);
+      this.outputChannel.appendLine(`   Script: ${this.config.script}`);
+      this.outputChannel.appendLine(`   Package Manager: ${this.config.packageManager}`);
       
       // Check dependencies
       await this.checkDependencies();
 
+      // Validate Vite config if needed
+      await this.validateViteConfig();
+
       // Find available port
       const port = await this.findAvailablePort(this.config.port);
+      this.outputChannel.appendLine(`🌐 Using port: ${port} (requested: ${this.config.port})`);
       this.status.port = port;
       this.status.url = `http://localhost:${port}`;
 
@@ -501,7 +684,7 @@ export default App`;
       await this.spawnProcess(port);
 
     } catch (error) {
-      this.outputChannel.appendLine(`Error starting preview: ${error}`);
+      this.outputChannel.appendLine(`❌ Error starting preview: ${error}`);
       vscode.window.showErrorMessage(`Failed to start preview: ${error}`);
       this.status.isStarting = false;
       this.updateStatusBar();
@@ -649,21 +832,53 @@ export default App`;
     this.openPreview();
     
     this.outputChannel.appendLine(`✅ Preview server ready on http://localhost:${port}`);
-    vscode.window.showInformationMessage(`Preview started on port ${port}`);
+    
+    // Show notification with restart instructions
+    vscode.window.showInformationMessage(
+      `Preview started on port ${port}`,
+      'Restart Preview'
+    ).then(selection => {
+      if (selection === 'Restart Preview') {
+        this.restartPreview();
+      }
+    });
   }
 
-  private openPreview(): void {
+  private async openPreview(): Promise<void> {
     if (!this.status.url) return;
 
     const config = vscode.workspace.getConfiguration('preview');
     const browserMode = config.get<string>('browserMode', 'in-editor');
 
+    this.outputChannel.appendLine(`🌐 Opening preview in ${browserMode} mode: ${this.status.url}`);
+
     if (browserMode === 'in-editor') {
-      // Try to open in Simple Browser
-      vscode.commands.executeCommand('simpleBrowser.show', this.status.url);
+      try {
+        // Try to open in Simple Browser first
+        await vscode.commands.executeCommand('simpleBrowser.show', this.status.url);
+        this.outputChannel.appendLine('✅ Preview opened in Simple Browser');
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Simple Browser failed: ${error}`);
+        this.outputChannel.appendLine('🔄 Falling back to external browser...');
+        
+        // Fallback to external browser
+        try {
+          await vscode.env.openExternal(vscode.Uri.parse(this.status.url));
+          this.outputChannel.appendLine('✅ Preview opened in external browser');
+        } catch (externalError) {
+          this.outputChannel.appendLine(`❌ External browser also failed: ${externalError}`);
+          vscode.window.showErrorMessage(`Failed to open preview. Please manually navigate to: ${this.status.url}`);
+        }
+      }
     } else {
       // Open in external browser
-      vscode.env.openExternal(vscode.Uri.parse(this.status.url));
+      try {
+        await vscode.env.openExternal(vscode.Uri.parse(this.status.url));
+        this.outputChannel.appendLine('✅ Preview opened in external browser');
+      } catch (error) {
+        this.outputChannel.appendLine(`❌ External browser failed: ${error}`);
+        vscode.window.showErrorMessage(`Failed to open preview. Please manually navigate to: ${this.status.url}`);
+      }
     }
   }
 
@@ -683,7 +898,16 @@ export default App`;
     
     this.updateStatusBar();
     this.outputChannel.appendLine('Preview server stopped');
-    vscode.window.showInformationMessage('Preview stopped');
+    
+    // Show notification with restart option
+    vscode.window.showInformationMessage(
+      'Preview stopped',
+      'Restart Preview'
+    ).then(selection => {
+      if (selection === 'Restart Preview') {
+        this.restartPreview();
+      }
+    });
   }
 
   private async restartPreview(): Promise<void> {
@@ -697,11 +921,11 @@ export default App`;
     
     if (this.status.isStarting) {
       this.statusBarItem.text = '⟳ Starting...';
-      this.statusBarItem.tooltip = 'Preview server is starting...';
+      this.statusBarItem.tooltip = 'Preview server is starting...\nClick to stop';
       this.statusBarItem.command = 'preview.stop';
     } else if (this.status.isRunning) {
       this.statusBarItem.text = `● Preview: Running on :${this.status.port}`;
-      this.statusBarItem.tooltip = `Preview running on ${this.status.url}\nClick to stop`;
+      this.statusBarItem.tooltip = `Preview running on ${this.status.url}\nClick to stop | Cmd+Shift+P → "Preview: Restart" to restart`;
       this.statusBarItem.command = 'preview.stop';
     } else {
       // Check if project exists

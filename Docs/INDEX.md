@@ -60,15 +60,25 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 - Project creation (HTML/CSS/JS, React)
 - Project detection and framework identification
 - Status bar integration
+- Basic port detection (framework-specific)
+
+### **🔧 Version 0.1.1 Improvements**
+- Fixed Vite config generation to use port 5173
+- Added Vite config validation and port synchronization
+- Enhanced port detection logging and debugging
+- **RESOLVED: Port conflict handling with automatic port resolution**
+- **RESOLVED: Vite config port mismatch issues**
+- Improved preview opening with fallback
+- Better stop/restart controls and notifications
+- Added process cleanup to prevent port conflicts
 
 ### **❌ Known Issues**
-- Port configuration mismatch (Vite uses 5173, extension expects 3000)
-- Preview opening needs refinement
-- Next.js template untested
+- Preview button not consistently opening Simple Browser
+- Some framework templates need testing
 
 ### **🚧 In Progress**
-- Port management fixes
 - Preview functionality improvements
+- Browser opening reliability
 
 ---
 
@@ -82,7 +92,8 @@ Welcome to the comprehensive documentation for the One-Click Local Preview Curso
 
 ### **Version History**
 - **v0.1.0**: Initial extension with basic functionality
-- **Current**: Working on port configuration and preview fixes
+- **v0.1.1**: Port handling improvements and preview fixes (current)
+- **Current**: Working on complete port configuration and preview functionality
 
 ---
 
