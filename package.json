@@ -2,7 +2,7 @@
   "name": "cursor-preview",
   "displayName": "One-Click Local Preview",
   "description": "One-click local preview for designers - no terminal required",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -14,7 +14,11 @@
     "onCommand:preview.run",
     "onCommand:preview.stop",
     "onCommand:preview.restart",
-    "onCommand:preview.createProject"
+    "onCommand:preview.createProject",
+    "onCommand:preview.showUI",
+    "onCommand:preview.showTemplates",
+    "onCommand:preview.showProjectControl",
+    "onCommand:preview.reloadUI"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -53,33 +57,19 @@
         "command": "preview.showProjectControl",
         "title": "Preview: Show Project Control",
         "category": "Preview"
+      },
+      {
+        "command": "preview.reloadUI",
+        "title": "Preview: Reload UI (Dev)",
+        "category": "Preview"
       }
     ],
     "menus": {
-      "commandPalette": [
-        {
-          "command": "preview.run",
-          "when": "!preview.isRunning"
-        },
-        {
-          "command": "preview.stop",
-          "when": "preview.isRunning"
-        },
-        {
-          "command": "preview.restart",
-          "when": "preview.isRunning"
-        },
+      "view/title": [
         {
           "command": "preview.showUI",
-          "when": "true"
-        },
-        {
-          "command": "preview.showTemplates",
-          "when": "true"
-        },
-        {
-          "command": "preview.showProjectControl",
-          "when": "preview.isRunning"
+          "when": "view == preview.templates",
+          "group": "navigation"
         }
       ]
     },
@@ -139,15 +129,6 @@
           "id": "preview.control",
           "name": "Project Control",
           "when": "preview.isRunning"
-        }
-      ]
-    },
-    "menus": {
-      "view/title": [
-        {
-          "command": "preview.showUI",
-          "when": "view == preview.templates",
-          "group": "navigation"
         }
       ]
     }

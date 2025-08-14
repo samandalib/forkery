@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UI Preview - Forkery Extension (Clean)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #cccccc;
+            line-height: 1.6;
+        }
+        
+
+        
+        .header {
+            text-align: left;
+            margin: 0 20px 0 0;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            color: #ffffff;
+            margin-bottom: 8px;
+            font-size: 20px;
+            font-weight: 600;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+        
+        .header p {
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 400;
+            text-align: left;
+            line-height: 1.4;
+            margin: 0;
+            letter-spacing: 0.5px;
+        }
+        
+        .category {
+            margin: 0 0 20px 0;
+        }
+        
+        .category h2 {
+            color: #ffffff;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+            font-size: 16px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .category-description {
+            color: #cccccc;
+            font-size: 13px;
+            line-height: 1.4;
+            margin: 0 0 12px 0;
+        }
+        
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+        
+
+        
+        .template-header {
+            margin-bottom: 10px;
+        }
+        
+        .connection-diagram {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            padding: 8px 0;
+            margin-top: 8px;
+            max-width: 100%;
+        }
+        
+        .backend-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 60px;
+            max-width: 80px;
+            flex-shrink: 1;
+        }
+        
+        .frontend-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            min-width: 60px;
+            max-width: 80px;
+            flex-shrink: 1;
+        }
+        
+        .label {
+            color: #6c757d;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .framework {
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        
+
+        
+        .template-title {
+            margin: 0;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        
+        .template-description {
+            color: #cccccc;
+            margin-bottom: 8px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+        
+        .template-use-case {
+            background: #1e1e1e;
+            border-left: 2px solid #6c757d;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            font-size: 12px;
+            color: #cccccc;
+            line-height: 1.4;
+        }
+        
+
+        
+        .template-card .complexity-beginner,
+        .complexity-beginner {
+            background: transparent !important;
+            color: #28a745 !important;
+            border: 2px solid #28a745 !important;
+            padding: 8px 16px !important;
+            border-radius: 20px !important;
+            display: inline-block !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            margin-bottom: 20px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .template-card .complexity-intermediate,
+        .complexity-intermediate {
+            background: transparent !important;
+            color: #ffc107 !important;
+            border: 2px solid #ffc107 !important;
+            padding: 8px 16px !important;
+            border-radius: 20px !important;
+            display: inline-block !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            margin-bottom: 20px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .template-card .complexity-advanced,
+        .complexity-advanced {
+            background: transparent !important;
+            color: #dc3545 !important;
+            border: 2px solid #dc3545 !important;
+            padding: 8px 16px !important;
+            border-radius: 20px !important;
+            display: inline-block !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            margin-bottom: 20px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease !important;
+        }
+        
+        .complexity-beginner:hover {
+            background: #28a745;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(40, 167, 69, 0.3);
+            border-color: #28a745;
+        }
+        
+        .complexity-intermediate:hover {
+            background: #ffc107;
+            color: #212529;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(255, 193, 7, 0.3);
+            border-color: #ffc107;
+        }
+        
+        .complexity-advanced:hover {
+            background: #dc3545;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+            border-color: #dc3545;
+        }
+        
+        /* App Complexity pills - All WHITE */
+        .complexity-simple-website,
+        .complexity-simple-app,
+        .complexity-medium-app,
+        .complexity-complex-app {
+            background: transparent !important;
+            color: #ffffff !important;
+            border: 2px solid #ffffff !important;
+            padding: 4px 8px !important;
+            border-radius: 12px !important;
+            display: inline-block !important;
+            font-size: 9px !important;
+            font-weight: 600 !important;
+            margin-right: 6px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        
+        /* Benefit pills - All GREEN */
+        .benefit-performance,
+        .benefit-deploy,
+        .benefit-ecosystem,
+        .benefit-seo,
+        .benefit-mobile,
+        .benefit-fast-dev,
+        .benefit-scalable,
+        .benefit-secure {
+            background: transparent !important;
+            color: #28a745 !important;
+            border: 2px solid #28a745 !important;
+            padding: 4px 8px !important;
+            border-radius: 12px !important;
+            display: inline-block !important;
+            font-size: 9px !important;
+            font-weight: 600 !important;
+            margin-right: 6px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        
+        /* Build type pills - All ORANGE */
+        .build-website,
+        .build-dashboard,
+        .build-ecommerce,
+        .build-portfolio,
+        .build-api,
+        .build-blog,
+        .build-landing,
+        .build-admin {
+            background: transparent !important;
+            color: #fd7e14 !important;
+            border: 2px solid #fd7e14 !important;
+            padding: 4px 8px !important;
+            border-radius: 12px !important;
+            display: inline-block !important;
+            font-size: 9px !important;
+            font-weight: 600 !important;
+            margin-right: 6px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.5px !important;
+        }
+        
+        .pill-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 20px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+
+        
+        .template-card {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+        
+        /* Fullstack Applications - Soft warm gray */
+        body .category:first-of-type .template-card {
+            background: #2a2a2e !important;
+            border-color: #3a3a3e !important;
+        }
+        
+        /* Frontend Applications - Soft sage green */
+        body .category:nth-of-type(2) .template-card {
+            background: #1e2a1e !important;
+            border-color: #2a3a2a !important;
+        }
+        
+        /* Simple Projects - Soft lavender */
+        body .category:nth-of-type(3) .template-card {
+            background: #2a1e2a !important;
+            border-color: #3a2a3a !important;
+        }
+        
+        .template-card:hover {
+            border-color: #007acc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        /* Hover effects that maintain category distinction */
+        .category:first-of-type .template-card:hover {
+            background: #323236 !important;
+        }
+        
+        .category:nth-of-type(2) .template-card:hover {
+            background: #263026 !important;
+        }
+        
+        .category:nth-of-type(3) .template-card:hover {
+            background: #362636 !important;
+        }
+        
+        .template-card:active {
+            transform: translateY(-1px);
+        }
+        
+        .template-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 8px;
+            background: linear-gradient(45deg, transparent, rgba(0, 122, 204, 0.05));
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            pointer-events: none;
+        }
+        
+        .template-card:hover::after {
+            opacity: 1;
+        }
+        
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #007acc;
+            color: white;
+            padding: 8px 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        
+        .refresh-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .refresh-button:hover {
+            background: #005a9e;
+        }
+        
+
+    </style>
+</head>
+<body>
+    <button class="refresh-button" onclick="location.reload()">🔄 Refresh</button>
+    
+        <div class="header">
+            <p>Decide what you want to make and see which tech stack can help you build it</p>
+        </div>
+        
+        <div class="category">
+            <h2>Fullstack Applications</h2>
+            <p class="category-description">If you need to have database connections, authentication, payments, or server-side logic.</p>
+            <div class="template-grid">
+                <div class="template-card">
+                    <div class="template-header">
+                        <div class="connection-diagram">
+                            <div class="backend-section">
+                                <div class="label">Backend</div>
+                                <div class="framework">Express.js</div>
+                            </div>
+                            <div class="frontend-section">
+                                <div class="label">Frontend</div>
+                                <div class="framework">React</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="template-description">A complete web application with an Express.js backend server and React frontend.</p>
+                    <div class="template-use-case">
+                        <strong>Perfect for:</strong> Building full web applications, APIs with user interfaces, or when you need both server and client code.
+                    </div>
+                    
+                    <div class="pill-container">
+                        <span class="complexity-medium-app">Medium App</span>
+                        <span class="benefit-ecosystem">Rich Ecosystem</span>
+                        <span class="benefit-fast-dev">Fast Dev</span>
+                        <span class="benefit-scalable">Scalable</span>
+                        <span class="build-dashboard">Dashboard</span>
+                        <span class="build-api">API</span>
+                        <span class="build-ecommerce">E-commerce</span>
+                    </div>
+                </div>
+                
+                <div class="template-card">
+                    <div class="template-header">
+                        <div class="connection-diagram">
+                            <div class="backend-section">
+                                <div class="label">Backend</div>
+                                <div class="framework">Node.js</div>
+                            </div>
+                            <div class="frontend-section">
+                                <div class="label">Frontend</div>
+                                <div class="framework">Next.js</div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="template-description">A modern fullstack setup with custom Node.js backend and Next.js frontend framework.</p>
+                    <div class="template-use-case">
+                        <strong>Perfect for:</strong> Building production-ready web applications, when you need SEO optimization, or complex routing.
+                    </div>
+                    
+                    <div class="pill-container">
+                        <span class="complexity-complex-app">Complex App</span>
+                        <span class="benefit-seo">SEO Friendly</span>
+                        <span class="benefit-performance">Great Performance</span>
+                        <span class="benefit-scalable">Scalable</span>
+                        <span class="build-website">Website</span>
+                        <span class="build-ecommerce">E-commerce</span>
+                        <span class="build-blog">Blog</span>
+                        <span class="build-dashboard">Dashboard</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category">
+            <h2>Frontend Applications</h2>
+            <p class="category-description">For when you want to build scalable UI without databases or server-side operations.</p>
+            <div class="template-grid">
+                <div class="template-card">
+                    <div class="template-header">
+                        <h3 class="template-title">Simple React App</h3>
+                    </div>
+                    <p class="template-description">A basic React application with Vite for fast development and building.</p>
+                    <div class="template-use-case">
+                        <strong>Perfect for:</strong> Learning React, building simple user interfaces, or when you only need a frontend application.
+                    </div>
+                    
+                    <div class="pill-container">
+                        <span class="complexity-simple-app">Simple App</span>
+                        <span class="benefit-performance">Great Performance</span>
+                        <span class="benefit-deploy">Easy to Deploy</span>
+                        <span class="build-portfolio">Portfolio</span>
+                        <span class="build-website">Website</span>
+                        <span class="build-landing">Landing</span>
+                    </div>
+                </div>
+                
+                <div class="template-card">
+                    <div class="template-header">
+                        <h3 class="template-title">Next.js App</h3>
+                    </div>
+                    <p class="template-description">A React framework with file-based routing, server-side rendering, and built-in optimizations.</p>
+                    <div class="template-use-case">
+                        <strong>Perfect for:</strong> Building professional websites, when you need SEO, or want built-in performance features.
+                    </div>
+                    
+                    <div class="pill-container">
+                        <span class="complexity-medium-app">Medium App</span>
+                        <span class="benefit-seo">SEO Friendly</span>
+                        <span class="benefit-performance">Great Performance</span>
+                        <span class="benefit-ecosystem">Rich Ecosystem</span>
+                        <span class="build-website">Website</span>
+                        <span class="build-portfolio">Portfolio</span>
+                        <span class="build-blog">Blog</span>
+                        <span class="build-landing">Landing</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="category">
+            <h2>Simple Projects</h2>
+            <p class="category-description">For static websites and simple web pages.</p>
+            <div class="template-grid">
+                <div class="template-card">
+                    <div class="template-header">
+                        <h3 class="template-title">Simple HTML/CSS/JS</h3>
+                    </div>
+                    <p class="template-description">A basic static website with live reload for instant preview of your changes.</p>
+                    <div class="template-use-case">
+                        <strong>Perfect for:</strong> Learning web development, building simple websites, or when you just need basic HTML pages.
+                    </div>
+                    
+                    <div class="pill-container">
+                        <span class="complexity-simple-app">Simple App</span>
+                        <span class="benefit-deploy">Easy to Deploy</span>
+                        <span class="benefit-performance">Great Performance</span>
+                        <span class="build-portfolio">Portfolio</span>
+                        <span class="build-website">Website</span>
+                        <span class="build-landing">Landing</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    
+    <div class="status-bar">
+        🚀 Preview Extension UI Preview (Clean) - Cards are now clickable! Click any template to select it.
+    </div>
+    
+    <script>
+        // Make all template cards clickable
+        document.querySelectorAll('.template-card').forEach(card => {
+            card.addEventListener('click', function() {
+                let templateName = 'Template';
+                
+                // Try to find template title first
+                const titleElement = this.querySelector('.template-title');
+                if (titleElement) {
+                    templateName = titleElement.textContent;
+                } else {
+                    // For fullstack cards, use the framework names
+                    const backendFramework = this.querySelector('.backend-section .framework');
+                    const frontendFramework = this.querySelector('.frontend-section .framework');
+                    if (backendFramework && frontendFramework) {
+                        templateName = `${backendFramework.textContent} + ${frontendFramework.textContent}`;
+                    }
+                }
+                
+                alert(`Selected: ${templateName}\n\nThis would create a new ${templateName} project in the actual extension.`);
+            });
+        });
+        
+        // Debug: Check pill styles
+        document.querySelectorAll('.template-complexity').forEach(pill => {
+            console.log('Pill element:', pill);
+            console.log('Computed padding:', window.getComputedStyle(pill).padding);
+            console.log('Computed border-radius:', window.getComputedStyle(pill).borderRadius);
+        });
+    </script>
+</body>
+</html>
