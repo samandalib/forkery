@@ -86,6 +86,25 @@ private async createFullstackProject(template: any, workspaceRoot: string, progr
 - ✅ **Self-contained projects** with embedded port configuration
 - ✅ **Immediate usability** after creation
 
+### **Template-Specific Handling**:
+
+The template handler now provides **dedicated creation methods** for different project types:
+
+1. **Fullstack Templates** (`express-react`, `node-nextjs`):
+   - Uses `createFullstackProject()` method
+   - Dynamic port detection for backend
+   - Coordinated backend/frontend setup
+
+2. **Next.js Templates** (`nextjs-app`):
+   - Uses `createNextJsProject()` method
+   - Dedicated Next.js creation logic
+   - Proper error handling and progress reporting
+
+3. **Other Templates** (`simple-react`, `simple-html`):
+   - Uses `executeProjectCreation()` method
+   - Generic shell command execution
+   - Standard project setup
+
 ## 🎛️ Middle Menu (Dropdown) Port Management
 
 ### **Location**: `src/extension.ts`
@@ -191,7 +210,15 @@ this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
 
 **Solution**: Coordinate port detection between both systems.
 
-### **Issue 3: Port Detection Timing**
+### **Issue 3: Next.js Project Creation Failure**
+
+**Problem**: Next.js projects were failing with "Next.js creation failed with code 1" error.
+
+**Root Cause**: Next.js templates were going through generic `executeProjectCreation` method instead of dedicated handling.
+
+**Solution**: ✅ **RESOLVED** - Created dedicated `createNextJsProject` method with proper error handling and shell execution.
+
+### **Issue 4: Port Detection Timing**
 
 **Problem**: Port detection happens at different times:
 - **Template Handler**: During project creation
@@ -267,6 +294,13 @@ this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
 2. **Port Persistence**: Remember port assignments across sessions
 3. **Smart Port Selection**: AI-powered port conflict prediction
 4. **Port Health Monitoring**: Real-time port availability tracking
+
+### **Recent Fixes**:
+
+1. **✅ Next.js Project Creation**: Resolved "Next.js creation failed with code 1" error
+2. **✅ Template Routing**: Improved template handling with dedicated creation methods
+3. **✅ Error Handling**: Better error messages and debugging information
+4. **✅ Progress Reporting**: Enhanced progress updates during project creation
 
 ### **Integration Goals**:
 
