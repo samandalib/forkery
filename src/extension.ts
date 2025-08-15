@@ -1822,7 +1822,7 @@ Created with ❤️ by the One-Click Local Preview Extension
       return new Promise<void>((resolve) => {
         // Handle process exit
         process.once('exit', () => {
-          this.outputChannel.appendLine('✅ Process exited gracefully');
+          this.outputChannel.appendLine('✅ Main process exited gracefully');
           this.status.process = null;
           this.status.isRunning = false;
           this.status.isStarting = false;
@@ -1896,6 +1896,102 @@ Created with ❤️ by the One-Click Local Preview Extension
           this.restartPreview();
         }
       });
+    }
+    
+    // ALWAYS clean up any remaining processes on the known ports
+    await this.cleanupRemainingProcesses();
+  }
+
+  private async cleanupRemainingProcesses(): Promise<void> {
+    try {
+      this.outputChannel.appendLine('🧹 Cleaning up any remaining processes on known ports...');
+      
+      // Get the ports we were using
+      const ports = [];
+      if (this.status.port) ports.push(this.status.port);
+      if (this.config?.port) ports.push(this.config.port);
+      
+      // Add common development ports
+      const commonPorts = [3000, 3001, 5173, 5000, 8000];
+      ports.push(...commonPorts);
+      
+      // Remove duplicates
+      const uniquePorts = [...new Set(ports)];
+      
+      for (const port of uniquePorts) {
+        try {
+          // Find processes using this port
+          const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
+            stdio: 'pipe',
+            shell: true
+          });
+
+          let processIds = '';
+          findProcess.stdout?.on('data', (data) => {
+            processIds += data.toString();
+          });
+
+          await new Promise<void>((resolve) => {
+            findProcess.on('close', async (code) => {
+              if (code === 0 && processIds.trim()) {
+                const pids = processIds.trim().split('\n');
+                for (const pid of pids) {
+                  if (pid.trim()) {
+                    try {
+                      this.outputChannel.appendLine(`🔄 Killing remaining process ${pid.trim()} on port ${port}`);
+                      const killProcess = child_process.spawn('kill', ['-9', pid.trim()], {
+                        stdio: 'pipe',
+                        shell: true
+                      });
+                      
+                      await new Promise<void>((resolveKill) => {
+                        killProcess.on('close', () => {
+                          this.outputChannel.appendLine(`✅ Killed process ${pid.trim()} on port ${port}`);
+                          resolveKill();
+                        });
+                      });
+                    } catch (error) {
+                      this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
+                    }
+                  }
+                }
+              }
+              resolve();
+            });
+          });
+        } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Error checking port ${port}: ${error}`);
+        }
+      }
+      
+      // Also kill any remaining Node.js development processes
+      const nodeProcesses = ['node', 'nodemon', 'next', 'vite', 'concurrently'];
+      for (const processName of nodeProcesses) {
+        try {
+          this.outputChannel.appendLine(`🧹 Cleaning up remaining ${processName} processes...`);
+          const killProcess = child_process.spawn('pkill', ['-f', processName], {
+            stdio: 'pipe',
+            shell: true
+          });
+
+          await new Promise<void>((resolve) => {
+            killProcess.on('close', (code) => {
+              if (code === 0) {
+                this.outputChannel.appendLine(`✅ Cleaned up ${processName} processes`);
+              } else if (code === 1) {
+                this.outputChannel.appendLine(`ℹ️ No ${processName} processes found`);
+              }
+              resolve();
+            });
+          });
+        } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Error cleaning up ${processName} processes: ${error}`);
+        }
+      }
+      
+      this.outputChannel.appendLine('✅ Process cleanup completed');
+    } catch (error) {
+      this.outputChannel.appendLine(`⚠️ Error during process cleanup: ${error}`);
     }
   }
 
