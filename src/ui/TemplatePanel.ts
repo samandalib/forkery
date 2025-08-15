@@ -188,6 +188,12 @@ export class TemplatePanel {
         return;
       }
 
+      // Handle Next.js templates specially
+      if (template.templateId === 'nextjs-app') {
+        await this.createNextJsProject(template, workspaceRoot, progress);
+        return;
+      }
+
       // Execute the creation command for other templates
       await new Promise<void>((resolve, reject) => {
         const commandParts = template.command.split(' ');
@@ -527,6 +533,92 @@ export default App`;
 
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to create fullstack project: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Create Next.js project with proper setup
+   */
+  private async createNextJsProject(template: any, workspaceRoot: string, progress: any): Promise<void> {
+    const fs = require('fs');
+    const path = require('path');
+    const child_process = require('child_process');
+
+    try {
+      progress.report({ message: 'Creating Next.js project...' });
+      
+      // Create Next.js app in the current workspace
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = child_process.spawn('npx', [
+          'create-next-app@latest', 
+          '.', 
+          '--typescript', 
+          '--tailwind', 
+          '--eslint', 
+          '--app', 
+          '--src-dir', 
+          '--import-alias', '@/*', 
+          '--yes', 
+          '--use-npm'
+        ], { 
+          cwd: workspaceRoot, 
+          stdio: 'pipe',
+          shell: true 
+        });
+
+        let output = '';
+        let errorOutput = '';
+        
+        childProcess.stdout?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          output += text;
+          console.log(`[STDOUT] ${text}`);
+          
+          if (text.includes('Installing packages') || text.includes('npm install')) {
+            progress.report({ message: 'Installing dependencies...' });
+          } else if (text.includes('Success!') || text.includes('Done') || text.includes('created successfully')) {
+            progress.report({ message: 'Project created successfully!' });
+          }
+        });
+
+        childProcess.stderr?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          errorOutput += text;
+          console.log(`[STDERR] ${text}`);
+        });
+
+        childProcess.on('error', (error: Error) => {
+          console.log(`[ERROR] Process error: ${error.message}`);
+          reject(new Error(`Process error: ${error.message}`));
+        });
+
+        childProcess.on('close', (code: number) => {
+          console.log(`[EXIT] Process exited with code ${code}`);
+          console.log(`[OUTPUT] Full output: ${output}`);
+          
+          if (code === 0) {
+            progress.report({ message: 'Next.js project created successfully!' });
+            resolve();
+          } else {
+            reject(new Error(`Next.js creation failed with code ${code}: ${errorOutput}`));
+          }
+        });
+      });
+
+      progress.report({ message: 'Next.js project created successfully!' });
+      
+      vscode.window.showInformationMessage(
+        `🎉 ${template.name} project created successfully! Start preview now?`,
+        'Start Preview', 'Not Now'
+      ).then((action: string | undefined) => {
+        if (action === 'Start Preview') {
+          vscode.commands.executeCommand('preview.run');
+        }
+      });
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to create Next.js project: ${error}`);
       throw error;
     }
   }
