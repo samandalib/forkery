@@ -1593,7 +1593,7 @@ Created with ❤️ by the One-Click Local Preview Extension
     const childProcess = child_process.spawn(command, args, {
       cwd: workspaceRoot,
       stdio: 'pipe',
-      shell: true
+      shell: false  // Remove shell dependency to prevent terminal restart issues
     });
 
     this.status.process = childProcess;
@@ -1646,30 +1646,66 @@ Created with ❤️ by the One-Click Local Preview Extension
     // Wait for server to be ready
     // Note: We don't need to wait here since we're already listening for ready signals
     // The server ready detection happens in the stdout listener
+    
+    // Add a fallback: if no ready signal detected within 10 seconds, check if port is responding
+    setTimeout(async () => {
+      if (this.status.isStarting && !this.status.isRunning) {
+        this.outputChannel.appendLine('⏰ No ready signal detected, checking if port is responding...');
+        try {
+          await this.checkPort(port);
+          this.outputChannel.appendLine('✅ Port is responding, server appears to be ready!');
+          this.onServerReady(port);
+        } catch (error) {
+          this.outputChannel.appendLine('⚠️ Port check failed, server may not be ready yet');
+        }
+      }
+    }, 10000);
   }
 
   private isServerReady(output: string, framework?: string): boolean {
     const lowerOutput = output.toLowerCase();
     
+    // Log the output for debugging
+    this.outputChannel.appendLine(`🔍 Checking server ready: "${output.trim()}" (Framework: ${framework})`);
+    
+    let isReady = false;
+    
     switch (framework) {
       case 'fullstack':
         // For fullstack, we need both backend and frontend to be ready
-        return (lowerOutput.includes('backend') && lowerOutput.includes('frontend')) ||
-               (lowerOutput.includes('concurrently') && lowerOutput.includes('ready')) ||
-               lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('listening');
+        isReady = (lowerOutput.includes('backend') && lowerOutput.includes('frontend')) ||
+                  (lowerOutput.includes('concurrently') && lowerOutput.includes('ready')) ||
+                  lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('listening') ||
+                  lowerOutput.includes('server running') || lowerOutput.includes('development server');
+        break;
       case 'next':
-        return lowerOutput.includes('ready') || lowerOutput.includes('started server');
+        isReady = lowerOutput.includes('ready') || lowerOutput.includes('started server') || 
+                  lowerOutput.includes('local:') || lowerOutput.includes('ready on');
+        break;
       case 'vite':
-        return lowerOutput.includes('ready') || lowerOutput.includes('local:');
+        isReady = lowerOutput.includes('ready') || lowerOutput.includes('local:') || 
+                  lowerOutput.includes('server running') || lowerOutput.includes('dev server running');
+        break;
       case 'gatsby':
-        return lowerOutput.includes('gatsby develop') && lowerOutput.includes('ready');
+        isReady = lowerOutput.includes('gatsby develop') && lowerOutput.includes('ready');
+        break;
       case 'astro':
-        return lowerOutput.includes('astro dev') && lowerOutput.includes('ready');
+        isReady = lowerOutput.includes('astro dev') && lowerOutput.includes('ready');
+        break;
       case 'remix':
-        return lowerOutput.includes('remix dev') && lowerOutput.includes('ready');
+        isReady = lowerOutput.includes('remix dev') && lowerOutput.includes('ready');
+        break;
       default:
-        return lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('listening');
+        isReady = lowerOutput.includes('ready') || lowerOutput.includes('started') || 
+                  lowerOutput.includes('listening') || lowerOutput.includes('server running') ||
+                  lowerOutput.includes('development server') || lowerOutput.includes('local:');
     }
+    
+    if (isReady) {
+      this.outputChannel.appendLine(`✅ Server ready signal detected for ${framework || 'unknown'} framework!`);
+    }
+    
+    return isReady;
   }
 
   private async waitForServer(port: number): Promise<void> {
@@ -1779,39 +1815,92 @@ Created with ❤️ by the One-Click Local Preview Extension
     }
   }
 
-  private stopPreview(): void {
+  private async stopPreview(): Promise<void> {
     if (this.status.process) {
-      this.status.process.kill('SIGTERM');
-      this.status.process = null;
+      const process = this.status.process;
+      
+      return new Promise<void>((resolve) => {
+        // Handle process exit
+        process.once('exit', () => {
+          this.outputChannel.appendLine('✅ Process exited gracefully');
+          this.status.process = null;
+          this.status.isRunning = false;
+          this.status.isStarting = false;
+          this.status.port = null;
+          this.status.url = null;
+          
+          // Update context key for command palette
+          vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+          
+          // Reset UI manager status
+          this.uiManager.resetProjectStatus();
+          
+          this.updateStatusBar();
+          this.outputChannel.appendLine('Preview server stopped');
+          
+          // Show notification with restart option
+          vscode.window.showInformationMessage(
+            'Preview stopped',
+            'Restart Preview'
+          ).then(selection => {
+            if (selection === 'Restart Preview') {
+              this.restartPreview();
+            }
+          });
+          
+          resolve();
+        });
+        
+        // Try graceful shutdown first (Ctrl+C)
+        this.outputChannel.appendLine('🔄 Sending SIGINT (Ctrl+C) for graceful shutdown...');
+        process.kill('SIGINT');
+        
+        // Force kill after timeout if still running
+        setTimeout(() => {
+          if (process && !process.killed) {
+            this.outputChannel.appendLine('⚠️ Process still running, sending SIGTERM...');
+            process.kill('SIGTERM');
+            
+            // Final force kill if still running
+            setTimeout(() => {
+              if (process && !process.killed) {
+                this.outputChannel.appendLine('🚨 Process still running, sending SIGKILL...');
+                process.kill('SIGKILL');
+              }
+            }, 2000);
+          }
+        }, 3000);
+      });
+    } else {
+      // No process to stop, just update status
+      this.status.isRunning = false;
+      this.status.isStarting = false;
+      this.status.port = null;
+      this.status.url = null;
+      
+      // Update context key for command palette
+      vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+      
+      // Reset UI manager status
+      this.uiManager.resetProjectStatus();
+      
+      this.updateStatusBar();
+      this.outputChannel.appendLine('Preview server stopped (no process was running)');
+      
+      // Show notification with restart option
+      vscode.window.showInformationMessage(
+        'Preview stopped',
+        'Restart Preview'
+      ).then(selection => {
+        if (selection === 'Restart Preview') {
+          this.restartPreview();
+        }
+      });
     }
-
-    this.status.isRunning = false;
-    this.status.isStarting = false;
-    this.status.port = null;
-    this.status.url = null;
-    
-    // Update context key for command palette
-    vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
-    
-    // Reset UI manager status
-    this.uiManager.resetProjectStatus();
-    
-    this.updateStatusBar();
-    this.outputChannel.appendLine('Preview server stopped');
-    
-    // Show notification with restart option
-    vscode.window.showInformationMessage(
-      'Preview stopped',
-      'Restart Preview'
-    ).then(selection => {
-      if (selection === 'Restart Preview') {
-        this.restartPreview();
-      }
-    });
   }
 
   private async restartPreview(): Promise<void> {
-    this.stopPreview();
+    await this.stopPreview();
     await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a bit
     await this.startPreview();
   }
