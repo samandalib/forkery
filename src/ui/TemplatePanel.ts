@@ -107,15 +107,29 @@ export class TemplatePanel {
         return;
       }
 
-      // Execute the command
-      await this.executeProjectCreation({
-        name: templateName,
-        description: `${templateName} project`,
-        command: template.command,
-        port: template.port,
-        dependencies: template.dependencies,
-        templateId: templateId
-      }, workspaceRoot);
+      // For fullstack templates, use the createFullstackProject method
+      if (templateId === 'express-react' || templateId === 'node-nextjs') {
+        const progress = {
+          report: (message: { message: string }) => {
+            console.log(`Progress: ${message.message}`);
+          }
+        };
+        
+        await this.createFullstackProject({
+          name: templateName,
+          templateId: templateId
+        }, workspaceRoot, progress);
+      } else {
+        // For non-fullstack templates, use the old method
+        await this.executeProjectCreation({
+          name: templateName,
+          description: `${templateName} project`,
+          command: template.command,
+          port: template.port,
+          dependencies: template.dependencies,
+          templateId: templateId
+        }, workspaceRoot);
+      }
 
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to create project: ${error}`);
@@ -244,9 +258,14 @@ export class TemplatePanel {
     const fs = require('fs');
     const path = require('path');
     const child_process = require('child_process');
+    const detectPort = require('detect-port');
 
     try {
-      progress.report({ message: 'Creating project structure...' });
+      progress.report({ message: 'Detecting available ports...' });
+      
+      // Detect available port for backend (start from 3001 to avoid conflicts with frontend)
+      const backendPort = await detectPort(3001);
+      progress.report({ message: `Detected backend port: ${backendPort}` });
       
       // Ensure directories exist
       const backendPath = path.join(workspaceRoot, 'backend');
@@ -285,13 +304,21 @@ export class TemplatePanel {
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || ${backendPort};
 
 app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
   res.json({ message: '${template.name} backend running!' });
+});
+
+app.get('/api/data', (req, res) => {
+  res.json({ 
+    message: 'Sample data from backend',
+    items: ['Item 1', 'Item 2', 'Item 3'],
+    timestamp: new Date().toISOString()
+  });
 });
 
 app.listen(PORT, () => {
@@ -381,13 +408,42 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
         fs.writeFileSync(path.join(srcPath, 'main.jsx'), mainJsx);
         
-        const appJsx = `import React from 'react'
+        const appJsx = `import React, { useState, useEffect } from 'react'
 
 function App() {
+  const [backendData, setBackendData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:${backendPort}/api/data')
+      .then(res => res.json())
+      .then(data => {
+        setBackendData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching from backend:', err);
+        setLoading(false);
+      });
+  }, []);
+
   return (
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
       <h1>${template.name}</h1>
-      <p>Backend: Express.js | Frontend: React + Vite</p>
+      <p>Backend: Express.js (Port ${backendPort}) | Frontend: React + Vite (Port 3000)</p>
+      
+      <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+        <h3>Backend Connection Status:</h3>
+        {loading ? (
+          <p>Loading data from backend...</p>
+        ) : backendData ? (
+          <div>
+            <p><strong>Message:</strong> {backendData.message}</p>
+          </div>
+        ) : (
+          <p>No data received from backend</p>
+        )}
+      </div>
     </div>
   )
 }

@@ -654,6 +654,10 @@ export default App`;
     this.outputChannel.appendLine(`🚀 Creating fullstack project: ${template.name}`);
     
     try {
+      // Detect available port for backend (start from 3001 to avoid conflicts with frontend)
+      const backendPort = await detectPort(3001);
+      this.outputChannel.appendLine(`🔍 Detected available backend port: ${backendPort}`);
+      
       // Update package.json with fullstack scripts
       const packageJsonPath = path.join(workspaceRoot, 'package.json');
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -683,11 +687,11 @@ export default App`;
       fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
       this.outputChannel.appendLine('✅ Updated package.json with fullstack scripts and dependencies');
       
-      // Create backend structure
-      await this.createBackendStructure(workspaceRoot);
+      // Create backend structure with detected port
+      await this.createBackendStructure(workspaceRoot, backendPort);
       
-      // Create frontend structure
-      await this.createFrontendStructure(template, workspaceRoot);
+      // Create frontend structure with detected backend port
+      await this.createFrontendStructure(template, workspaceRoot, backendPort);
       
       // Create root README
       await this.createFullstackReadme(template, workspaceRoot);
@@ -700,7 +704,7 @@ export default App`;
     }
   }
 
-  private async createBackendStructure(workspaceRoot: string): Promise<void> {
+  private async createBackendStructure(workspaceRoot: string, backendPort: number): Promise<void> {
     const backendDir = path.join(workspaceRoot, 'backend');
     
     // Create backend package.json
@@ -724,12 +728,12 @@ export default App`;
     
     fs.writeFileSync(path.join(backendDir, 'package.json'), JSON.stringify(backendPackageJson, null, 2));
     
-    // Create Express server
+    // Create Express server with dynamic port
     const serverContent = `const express = require('express');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || ${backendPort};
 
 // Middleware
 app.use(cors());
@@ -757,22 +761,22 @@ app.listen(PORT, () => {
     
     fs.writeFileSync(path.join(backendDir, 'server.js'), serverContent);
     
-    this.outputChannel.appendLine('✅ Backend structure created (server.js, package.json)');
+    this.outputChannel.appendLine(`✅ Backend structure created (server.js, package.json) - Port: ${backendPort}`);
   }
 
-  private async createFrontendStructure(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+  private async createFrontendStructure(template: ProjectTemplate, workspaceRoot: string, backendPort: number): Promise<void> {
     const frontendDir = path.join(workspaceRoot, 'frontend');
     
-    if (template.name.toLowerCase().includes('next')) {
-      // Create Next.js frontend
-      await this.createNextjsFrontend(frontendDir);
-    } else {
-      // Create React frontend
-      await this.createReactFrontend(frontendDir);
-    }
+          if (template.name.toLowerCase().includes('next')) {
+        // Create Next.js frontend
+        await this.createNextjsFrontend(frontendDir, backendPort);
+      } else {
+        // Create React frontend
+        await this.createReactFrontend(frontendDir, backendPort);
+      }
   }
 
-  private async createNextjsFrontend(frontendDir: string): Promise<void> {
+  private async createNextjsFrontend(frontendDir: string, backendPort: number): Promise<void> {
     // Create Next.js package.json
     const nextPackageJson = {
       name: "frontend",
@@ -813,7 +817,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/data')
+    fetch('http://localhost:${backendPort}/api/data')
       .then(res => res.json())
       .then(data => {
         setBackendData(data);
@@ -846,7 +850,7 @@ export default function Home() {
       </div>
       
       <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        <p><strong>Backend:</strong> http://localhost:5000</p>
+        <p><strong>Backend:</strong> http://localhost:${backendPort}</p>
         <p><strong>Frontend:</strong> http://localhost:3000</p>
       </div>
     </div>
@@ -858,7 +862,7 @@ export default function Home() {
     this.outputChannel.appendLine('✅ Next.js frontend structure created');
   }
 
-  private async createReactFrontend(frontendDir: string): Promise<void> {
+  private async createReactFrontend(frontendDir: string, backendPort: number): Promise<void> {
     // Create React package.json
     const reactPackageJson = {
       name: "frontend",
@@ -917,7 +921,7 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/data')
+    fetch('http://localhost:${backendPort}/api/data')
       .then(res => res.json())
       .then(data => {
         setBackendData(data);
@@ -950,7 +954,7 @@ function App() {
       </div>
       
       <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        <p><strong>Backend:</strong> http://localhost:5000</p>
+        <p><strong>Backend:</strong> http://localhost:${backendPort}</p>
         <p><strong>Frontend:</strong> http://localhost:3000</p>
       </div>
     </div>
