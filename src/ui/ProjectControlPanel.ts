@@ -80,18 +80,12 @@ export class ProjectControlPanel {
                     case 'startServer':
                         this.startServer();
                         break;
-                    case 'restartServer':
-                        this.restartServer();
-                        break;
+
                     case 'stopServer':
                         this.stopServer();
                         break;
-                    case 'previewApp':
-                        this.previewApp();
-                        break;
-                    case 'openInBrowser':
-                        this.openInBrowser();
-                        break;
+
+
                     case 'getProjectInfo':
                         this.getProjectInfo();
                         break;
@@ -117,18 +111,12 @@ export class ProjectControlPanel {
                         case 'startServer':
                             this.startServer();
                             break;
-                        case 'restartServer':
-                            this.restartServer();
-                            break;
+
                         case 'stopServer':
                             this.stopServer();
                             break;
-                        case 'previewApp':
-                            this.previewApp();
-                            break;
-                        case 'openInBrowser':
-                            this.openInBrowser();
-                            break;
+
+
                         case 'getProjectInfo':
                             this.getProjectInfo();
                             break;
@@ -400,47 +388,21 @@ export class ProjectControlPanel {
                         </div>
                         
                         <div class="control-buttons">
-                            <button class="btn">
+                            <button class="btn" id="start-btn">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M8 5v14l11-7z"/>
                                 </svg>
-                                Start the Server
+                                Start Server
                             </button>
-                            <button class="btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-                                </svg>
-                                Restart the Server
-                            </button>
-                            <button class="btn">
+                            <button class="btn" id="stop-btn">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="color: #f44336;">
                                     <path d="M6 6h12v12H6z"/>
                                 </svg>
-                                Stop the Server
-                            </button>
-                            <button class="btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                                </svg>
-                                Preview the App
-                            </button>
-                            <button class="btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                                </svg>
-                                Open the App in Browser
+                                Stop Server
                             </button>
                         </div>
 
                         <div class="project-info-compact">
-                            <span class="info-item">
-                                <span class="info-label">Project:</span>
-                                <span class="info-value" id="project-name">Loading...</span>
-                            </span>
-                            <span class="info-item">
-                                <span class="info-label">Framework:</span>
-                                <span class="info-value" id="project-framework">Loading...</span>
-                            </span>
                             <span class="info-item">
                                 <span class="info-label">Port:</span>
                                 <span class="info-value" id="project-port">Loading...</span>
@@ -469,18 +431,6 @@ export class ProjectControlPanel {
                     });
 
                     function updateProjectInfo(data) {
-                        // Update project name
-                        const nameElement = document.getElementById('project-name');
-                        if (nameElement && data.name) {
-                            nameElement.textContent = data.name;
-                        }
-                        
-                        // Update framework
-                        const frameworkElement = document.getElementById('project-framework');
-                        if (frameworkElement && data.framework) {
-                            frameworkElement.textContent = data.framework;
-                        }
-                        
                         // Update port
                         const portElement = document.getElementById('project-port');
                         if (portElement && data.port) {
@@ -507,35 +457,14 @@ export class ProjectControlPanel {
                     }
 
                     // Control button functionality
-                    document.querySelectorAll('.btn').forEach(btn => {
-                        btn.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            
-                            const buttonText = this.textContent.trim();
-                            
-                            let command = '';
-                            switch(buttonText) {
-                                case 'Start the Server':
-                                    command = 'startServer';
-                                    break;
-                                case 'Restart the Server':
-                                    command = 'restartServer';
-                                    break;
-                                case 'Stop the Server':
-                                    command = 'stopServer';
-                                    break;
-                                case 'Preview the App':
-                                    command = 'previewApp';
-                                    break;
-                                case 'Open the App in Browser':
-                                    command = 'openInBrowser';
-                                    break;
-                            }
-                            
-                            if (command) {
-                                vscode.postMessage({ command: command });
-                            }
-                        });
+                    document.getElementById('start-btn').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        vscode.postMessage({ command: 'startServer' });
+                    });
+                    
+                    document.getElementById('stop-btn').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        vscode.postMessage({ command: 'stopServer' });
                     });
 
                     // Request project info on load
@@ -568,21 +497,7 @@ export class ProjectControlPanel {
         }
     }
 
-    private async restartServer() {
-        try {
-            vscode.window.showInformationMessage('🔄 Restarting the server...');
-            
-            // Execute the restart command
-            await vscode.commands.executeCommand('preview.restart');
-            
-            // Update the status to show server is starting
-            this.updateProjectStatus('starting');
-            
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to restart server: ${error}`);
-            this.updateProjectStatus('stopped');
-        }
-    }
+
 
     private async stopServer() {
         try {
@@ -600,63 +515,19 @@ export class ProjectControlPanel {
         }
     }
 
-    private async previewApp() {
-        try {
-            vscode.window.showInformationMessage('🚀 Starting project preview...');
-            
-            // Execute the preview command to start the development server
-            await vscode.commands.executeCommand('preview.run');
-            
-            // Update the status to show preview is starting
-            this.updateProjectStatus('starting');
-            
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to start preview: ${error}`);
-            this.updateProjectStatus('stopped');
-        }
-    }
 
-    private async openInBrowser() {
-        try {
-            // Get the current project's URL from the extension
-            const workspaceFolders = vscode.workspace.workspaceFolders;
-            if (!workspaceFolders || workspaceFolders.length === 0) {
-                vscode.window.showErrorMessage('No workspace found');
-                return;
-            }
 
-            const projectPath = workspaceFolders[0].uri.fsPath;
-            const packageJsonPath = path.join(projectPath, 'package.json');
-            
-            if (fs.existsSync(packageJsonPath)) {
-                const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-                const port = this.detectPort(packageJson);
-                const url = `http://localhost:${port}`;
-                
-                vscode.window.showInformationMessage(`🌐 Opening ${url} in browser...`);
-                
-                // Open the URL in the default browser
-                await vscode.env.openExternal(vscode.Uri.parse(url));
-            } else {
-                vscode.window.showErrorMessage('No package.json found. Please start the preview first.');
-            }
-            
-        } catch (error) {
-            vscode.window.showErrorMessage(`Failed to open in browser: ${error}`);
-        }
-    }
+
 
     private async getProjectInfo() {
         try {
             // Get project info from workspace
             const workspaceFolders = vscode.workspace.workspaceFolders;
             if (!workspaceFolders || workspaceFolders.length === 0) {
-                this.sendProjectInfo({
-                    name: 'No project open',
-                    framework: 'Unknown',
-                    port: 'N/A',
-                    status: 'stopped'
-                });
+                            this.sendProjectInfo({
+                port: 'N/A',
+                status: 'stopped'
+            });
                 return;
             }
 
@@ -671,16 +542,12 @@ export class ProjectControlPanel {
                 const status = 'stopped'; // Start with stopped, will be updated by actual status
 
                 this.sendProjectInfo({
-                    name: projectName,
-                    framework: framework,
                     port: port,
                     status: status
                 });
             } else {
                 // No package.json found
                 this.sendProjectInfo({
-                    name: 'No package.json found',
-                    framework: 'Unknown',
                     port: 'N/A',
                     status: 'stopped'
                 });
@@ -688,8 +555,6 @@ export class ProjectControlPanel {
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to get project info: ${error}`);
             this.sendProjectInfo({
-                name: 'Error loading project',
-                framework: 'Unknown',
                 port: 'N/A',
                 status: 'stopped'
             });
