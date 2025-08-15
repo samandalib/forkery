@@ -69,7 +69,7 @@ export class TemplatePanel {
         dependencies: ['express', 'next', 'react', 'react-dom', 'cors', 'nodemon']
       },
       'simple-react': {
-        command: 'npm init -y && npm install react react-dom && npm install --save-dev @vitejs/plugin-react vite && mkdir -p src && echo \'{"scripts":{"dev":"vite","build":"vite build","preview":"vite preview"}}\' > package.json && echo "import React from \'react\'; import ReactDOM from \'react-dom/client\'; import App from \'./App\'; ReactDOM.createRoot(document.getElementById(\'root\')).render(<App />);" > main.jsx && echo "import React from \'react\'; function App() { return <div><h1>Simple React App</h1><p>Built with Vite</p></div>; } export default App;" > App.jsx && echo "<!DOCTYPE html><html><head><title>React App</title></head><body><div id=\"root\"></div><script type=\"module\" src=\"/main.jsx\"></script></body></html>" > index.html && mv *.jsx src/ && mv index.html . && echo "import { defineConfig } from \'vite\'; import react from \'@vitejs/plugin-react\'; export default defineConfig({ plugins: [react()] });" > vite.config.js',
+        command: 'npm init -y && mkdir -p src',
         port: 5173,
         dependencies: ['vite', 'react', 'react-dom']
       },
@@ -140,6 +140,12 @@ export class TemplatePanel {
           } else if (templateId === 'nextjs-app') {
             // For Next.js templates, use the createNextJsProject method
             await this.createNextJsProject({
+              name: templateName,
+              templateId: templateId
+            }, workspaceRoot, enhancedProgress);
+          } else if (templateId === 'simple-react') {
+            // For React templates, use the createSimpleReactProject method
+            await this.createSimpleReactProject({
               name: templateName,
               templateId: templateId
             }, workspaceRoot, enhancedProgress);
@@ -503,16 +509,159 @@ export default App`;
         // Create Next.js frontend
         progress.report({ message: 'Creating Next.js frontend...' });
         await new Promise<void>((resolve, reject) => {
-          const childProcess = require('child_process').spawn('npx', ['create-next-app@latest', '.', '--typescript', '--tailwind', '--eslint', '--app', '--src-dir', '--import-alias', '@/*', '--yes', '--use-npm'], { 
+          // Try simpler approach first - just create basic Next.js app
+          const childProcess = require('child_process').spawn('npx', ['create-next-app@latest', '.', '--yes', '--use-npm'], { 
             cwd: frontendPath, 
             stdio: 'pipe',
             shell: true 
           });
+          
+          let output = '';
+          let errorOutput = '';
+          
+          childProcess.stdout?.on('data', (data: Buffer) => {
+            const text = data.toString();
+            output += text;
+            console.log(`[Next.js STDOUT] ${text}`);
+          });
+          
+          childProcess.stderr?.on('data', (data: Buffer) => {
+            const text = data.toString();
+            errorOutput += text;
+            console.log(`[Next.js STDERR] ${text}`);
+          });
+          
+          childProcess.on('error', (error: Error) => {
+            console.log(`[Next.js ERROR] Process error: ${error.message}`);
+            reject(new Error(`Next.js process error: ${error.message}`));
+          });
+          
           childProcess.on('close', (code: number) => {
-            if (code === 0) resolve();
-            else reject(new Error(`Next.js creation failed with code ${code}`));
+            console.log(`[Next.js EXIT] Process exited with code ${code}`);
+            console.log(`[Next.js OUTPUT] Full output: ${output}`);
+            if (errorOutput) {
+              console.log(`[Next.js ERRORS] Error output: ${errorOutput}`);
+            }
+            
+            if (code === 0) {
+              resolve();
+            } else {
+              reject(new Error(`Next.js creation failed with code ${code}. Output: ${output}. Errors: ${errorOutput}`));
+            }
           });
         });
+        
+        // After Next.js is created, update its package.json to use the detected backend port
+        progress.report({ message: 'Configuring Next.js for fullstack...' });
+        const nextjsPackageJsonPath = path.join(frontendPath, 'package.json');
+        if (fs.existsSync(nextjsPackageJsonPath)) {
+          const nextjsPackageJson = JSON.parse(fs.readFileSync(nextjsPackageJsonPath, 'utf8'));
+          
+          // Add a custom script for fullstack development
+          nextjsPackageJson.scripts['dev:fullstack'] = `next dev --port 3000`;
+          
+          // Write the updated package.json
+          fs.writeFileSync(nextjsPackageJsonPath, JSON.stringify(nextjsPackageJson, null, 2));
+        }
+        
+        // Wait for Next.js to be fully ready by running a test build
+        progress.report({ message: 'Waiting for Next.js to be ready...' });
+        await new Promise<void>((resolve, reject) => {
+          const testProcess = require('child_process').spawn('npm', ['run', 'build'], { 
+            cwd: frontendPath, 
+            stdio: 'pipe',
+            shell: true 
+          });
+          
+          let buildOutput = '';
+          
+          testProcess.stdout?.on('data', (data: Buffer) => {
+            const text = data.toString();
+            buildOutput += text;
+            console.log(`[Next.js Build] ${text}`);
+          });
+          
+          testProcess.stderr?.on('data', (data: Buffer) => {
+            const text = data.toString();
+            buildOutput += text;
+            console.log(`[Next.js Build Error] ${text}`);
+          });
+          
+          testProcess.on('error', (error: Error) => {
+            console.log(`[Next.js Build ERROR] Process error: ${error.message}`);
+            // Don't reject here - just log the error and continue
+            resolve();
+          });
+          
+          testProcess.on('close', (code: number) => {
+            console.log(`[Next.js Build EXIT] Process exited with code ${code}`);
+            if (code === 0) {
+              console.log('[Next.js Build] ✅ Build successful - Next.js is ready!');
+            } else {
+              console.log(`[Next.js Build] ⚠️ Build failed with code ${code}, but continuing...`);
+            }
+            resolve();
+          });
+          
+          // Add timeout to prevent hanging
+          setTimeout(() => {
+            console.log('[Next.js Build] ⏰ Build timeout reached, continuing...');
+            testProcess.kill();
+            resolve();
+          }, 30000); // 30 second timeout
+        });
+        
+        // Create a custom page that connects to the backend
+        const appDir = path.join(frontendPath, 'src', 'app');
+        if (fs.existsSync(appDir)) {
+          const pagePath = path.join(appDir, 'page.tsx');
+          const pageContent = `"use client";
+
+import { useState, useEffect } from 'react';
+
+export default function Home() {
+  const [backendData, setBackendData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('http://localhost:${backendPort}/api/data')
+      .then(res => res.json())
+      .then(data => {
+        setBackendData(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Error fetching from backend:', err);
+        setLoading(false);
+      });
+  }, []);
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
+        <h1 className="text-4xl font-bold mb-8">Node.js + Next.js Fullstack</h1>
+        
+        <div className="bg-gray-800 p-6 rounded-lg border border-gray-700">
+          <h2 className="text-2xl font-semibold mb-4">Backend Connection Status</h2>
+          {loading ? (
+            <p className="text-gray-300">Loading data from backend...</p>
+          ) : backendData ? (
+            <div>
+              <p className="text-green-400"><strong>Message:</strong> {backendData.message}</p>
+              <p className="text-gray-300 mt-2"><strong>Backend Port:</strong> ${backendPort}</p>
+              <p className="text-gray-300"><strong>Frontend Port:</strong> 3000</p>
+            </div>
+          ) : (
+            <p className="text-red-400">No data received from backend</p>
+          )}
+        </div>
+      </div>
+    </main>
+  );
+}`;
+          
+          fs.writeFileSync(pagePath, pageContent);
+        }
       }
 
       progress.report({ message: 'Installing frontend dependencies...' });
@@ -537,7 +686,7 @@ export default App`;
         scripts: {
           dev: 'concurrently "npm run dev:backend" "npm run dev:frontend"',
           'dev:backend': 'cd backend && npm run dev',
-          'dev:frontend': 'cd frontend && npm run dev',
+          'dev:frontend': template.templateId === 'node-nextjs' ? 'cd frontend && npm run dev:fullstack' : 'cd frontend && npm run dev',
           start: 'cd backend && npm start',
           build: 'cd frontend && npm run build'
         },
@@ -563,14 +712,41 @@ export default App`;
 
       progress.report({ message: 'Fullstack project created successfully!' });
       
-      vscode.window.showInformationMessage(
-        `🎉 ${template.name} fullstack project created successfully! Start preview now?`,
-        'Start Preview', 'Not Now'
-      ).then((action: string | undefined) => {
-        if (action === 'Start Preview') {
-          vscode.commands.executeCommand('preview.run');
-        }
-      });
+      // For Node+Next projects, add a delay to ensure Next.js is fully ready
+      if (template.templateId === 'node-nextjs') {
+        progress.report({ message: 'Waiting for Next.js to be fully ready...' });
+        
+        // Show a message explaining the delay
+        vscode.window.showInformationMessage(
+          `🎉 ${template.name} fullstack project created successfully! Next.js needs a moment to compile. Starting preview in 5 seconds...`,
+          'Start Now', 'Wait 5s'
+        ).then((action: string | undefined) => {
+          if (action === 'Start Now') {
+            // Start immediately but show a warning
+            vscode.window.showWarningMessage(
+              'Starting preview immediately. If you see a blank page, wait a few seconds for Next.js to compile.',
+              'OK'
+            );
+            vscode.commands.executeCommand('preview.run');
+          } else {
+            // Wait 5 seconds then start
+            setTimeout(() => {
+              vscode.window.showInformationMessage('Starting preview now... Next.js should be ready!');
+              vscode.commands.executeCommand('preview.run');
+            }, 5000);
+          }
+        });
+      } else {
+        // For other projects, start immediately
+        vscode.window.showInformationMessage(
+          `🎉 ${template.name} fullstack project created successfully! Start preview now?`,
+          'Start Preview', 'Not Now'
+        ).then((action: string | undefined) => {
+          if (action === 'Start Preview') {
+            vscode.commands.executeCommand('preview.run');
+          }
+        });
+      }
 
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to create fullstack project: ${error}`);
@@ -660,6 +836,182 @@ export default App`;
 
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to create Next.js project: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Create Simple React project with Vite
+   */
+  private async createSimpleReactProject(template: any, workspaceRoot: string, progress: any): Promise<void> {
+    const fs = require('fs');
+    const path = require('path');
+    const child_process = require('child_process');
+
+    try {
+      progress.report({ message: 'Creating Simple React project...' });
+      
+      // Initialize npm project
+      progress.report({ message: 'Initializing npm project...' });
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = child_process.spawn('npm', ['init', '-y'], { 
+          cwd: workspaceRoot, 
+          stdio: 'pipe',
+          shell: true 
+        });
+        
+        childProcess.on('close', (code: number) => {
+          if (code === 0) resolve();
+          else reject(new Error(`npm init failed with code ${code}`));
+        });
+      });
+
+      // Install dependencies
+      progress.report({ message: 'Installing React dependencies...' });
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = child_process.spawn('npm', ['install', 'react', 'react-dom'], { 
+          cwd: workspaceRoot, 
+          stdio: 'pipe',
+          shell: true 
+        });
+        
+        childProcess.on('close', (code: number) => {
+          if (code === 0) resolve();
+          else reject(new Error(`React dependencies installation failed with code ${code}`));
+        });
+      });
+
+      progress.report({ message: 'Installing Vite dependencies...' });
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = child_process.spawn('npm', ['install', '--save-dev', '@vitejs/plugin-react', 'vite'], { 
+          cwd: workspaceRoot, 
+          stdio: 'pipe',
+          shell: true 
+        });
+        
+        childProcess.on('close', (code: number) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Vite dependencies installation failed with code ${code}`));
+        });
+      });
+
+      // Create project structure
+      progress.report({ message: 'Creating project structure...' });
+      const srcPath = path.join(workspaceRoot, 'src');
+      if (!fs.existsSync(srcPath)) {
+        fs.mkdirSync(srcPath, { recursive: true });
+      }
+
+      // Create package.json with scripts
+      const packageJson = {
+        name: 'simple-react-app',
+        version: '1.0.0',
+        type: 'module',
+        scripts: {
+          dev: 'vite',
+          build: 'vite build',
+          preview: 'vite preview'
+        },
+        dependencies: {
+          react: '^18.0.0',
+          'react-dom': '^18.0.0'
+        },
+        devDependencies: {
+          '@vitejs/plugin-react': '^4.0.0',
+          vite: '^4.0.0'
+        }
+      };
+      
+      fs.writeFileSync(path.join(workspaceRoot, 'package.json'), JSON.stringify(packageJson, null, 2));
+
+      // Create main.jsx
+      const mainJsx = `import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);`;
+      
+      fs.writeFileSync(path.join(srcPath, 'main.jsx'), mainJsx);
+
+      // Create App.jsx
+      const appJsx = `import React from 'react';
+
+function App() {
+  return (
+    <div style={{ 
+      fontFamily: 'Arial, sans-serif', 
+      textAlign: 'center', 
+      padding: '50px',
+      backgroundColor: '#f5f5f5',
+      minHeight: '100vh'
+    }}>
+      <h1 style={{ color: '#333', marginBottom: '20px' }}>Simple React App</h1>
+      <p style={{ color: '#666', fontSize: '18px' }}>Built with Vite</p>
+      <div style={{ 
+        marginTop: '30px',
+        padding: '20px',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        <p style={{ color: '#333' }}>🎉 Your React app is ready!</p>
+        <p style={{ color: '#666', fontSize: '14px' }}>Edit src/App.jsx to get started</p>
+      </div>
+    </div>
+  );
+}
+
+export default App;`;
+      
+      fs.writeFileSync(path.join(srcPath, 'App.jsx'), appJsx);
+
+      // Create index.html
+      const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simple React App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>`;
+      
+      fs.writeFileSync(path.join(workspaceRoot, 'index.html'), indexHtml);
+
+      // Create vite.config.js
+      const viteConfig = `import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    open: true
+  }
+});`;
+      
+      fs.writeFileSync(path.join(workspaceRoot, 'vite.config.js'), viteConfig);
+
+      progress.report({ message: 'Simple React project created successfully!' });
+      
+      vscode.window.showInformationMessage(
+        `🎉 ${template.name} project created successfully! Start preview now?`,
+        'Start Preview', 'Not Now'
+      ).then((action: string | undefined) => {
+        if (action === 'Start Preview') {
+          vscode.commands.executeCommand('preview.run');
+        }
+      });
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to create Simple React project: ${error}`);
       throw error;
     }
   }

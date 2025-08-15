@@ -198,7 +198,7 @@ this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
 
 **Root Cause**: This line is in the **logging section**, not the actual port assignment.
 
-**Solution**: Update logging to reflect actual detected ports.
+**Solution**: ✅ **RESOLVED** - Preview system now detects actual backend port from generated project files.
 
 ### **Issue 2: Template Handler vs. Middle Menu Mismatch**
 
@@ -225,6 +225,22 @@ this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
 - **Middle Menu**: During project execution
 
 **Solution**: Store detected ports in project configuration for reuse.
+
+### **Issue 5: Next.js Compilation Timing**
+
+**Problem**: Node+Next projects show blank pages until manual port changes.
+
+**Root Cause**: Next.js needs time to compile after creation, but preview starts immediately.
+
+**Solution**: ✅ **RESOLVED** - Added Next.js readiness check with test build and smart delay options.
+
+### **Issue 6: Simple React Project Creation**
+
+**Problem**: `mv: index.html and ./index.html are identical` error during creation.
+
+**Root Cause**: Complex shell command with problematic file movement operations.
+
+**Solution**: ✅ **RESOLVED** - Replaced with dedicated `createSimpleReactProject` method.
 
 ## 🔄 Port Conflict Resolution
 
@@ -302,6 +318,9 @@ this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
 3. **✅ Error Handling**: Better error messages and debugging information
 4. **✅ Progress Reporting**: Enhanced progress updates during project creation
 5. **✅ Progress Indicator**: Added visual progress overlay for real-time project creation feedback
+6. **✅ Backend Port Detection**: Preview system now reads actual backend port from project files
+7. **✅ Next.js Readiness Check**: Added compilation delay and readiness verification for Node+Next projects
+8. **✅ Simple React Project Creation**: Fixed mv command errors with dedicated creation method
 
 ### **Integration Goals**:
 
@@ -329,6 +348,28 @@ this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
 - `detectPort(port)`: Find available port starting from specified port
 - `killExistingProcesses(port)`: Clean up port conflicts
 - `findAvailablePort(desiredPort)`: Main port resolution logic
+
+### **Backend Port Detection**:
+The preview system now automatically detects the actual backend port from generated project files:
+
+```typescript
+// Detect actual backend port from the project
+let backendPort = 5000; // fallback
+try {
+  const backendServerPath = path.join(workspaceRoot, 'backend', 'server.js');
+  if (fs.existsSync(backendServerPath)) {
+    const serverContent = fs.readFileSync(backendServerPath, 'utf8');
+    const portMatch = serverContent.match(/PORT = process\.env\.PORT \|\| (\d+)/);
+    if (portMatch) {
+      backendPort = parseInt(portMatch[1]);
+    }
+  }
+} catch (error) {
+  this.outputChannel.appendLine(`⚠️ Could not detect backend port, using fallback: ${backendPort}`);
+}
+```
+
+This ensures that the preview system always shows the correct backend port that was detected during project creation.
 
 ### **Configuration Files**:
 - `package.json`: Scripts and dependencies

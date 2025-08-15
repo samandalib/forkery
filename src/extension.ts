@@ -1558,11 +1558,26 @@ Created with ❤️ by the One-Click Local Preview Extension
       : ['run', this.config.script];
 
     if (this.config.framework === 'fullstack') {
+      // Detect actual backend port from the project
+      let backendPort = 5000; // fallback
+      try {
+        const backendServerPath = path.join(workspaceRoot, 'backend', 'server.js');
+        if (fs.existsSync(backendServerPath)) {
+          const serverContent = fs.readFileSync(backendServerPath, 'utf8');
+          const portMatch = serverContent.match(/PORT = process\.env\.PORT \|\| (\d+)/);
+          if (portMatch) {
+            backendPort = parseInt(portMatch[1]);
+          }
+        }
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Could not detect backend port, using fallback: ${backendPort}`);
+      }
+      
       this.outputChannel.appendLine(`Starting fullstack project with backend and frontend...`);
       this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
       this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
       this.outputChannel.appendLine(`Script to run: ${this.config.script} (concurrently runs both servers)`);
-      this.outputChannel.appendLine(`Backend port: 5000, Frontend port: ${port}`);
+      this.outputChannel.appendLine(`Backend port: ${backendPort}, Frontend port: ${port}`);
       this.outputChannel.appendLine(`Fullstack mode: Backend + Frontend running simultaneously`);
     } else {
       this.outputChannel.appendLine(`Starting ${this.config.framework} server on port ${port}...`);
