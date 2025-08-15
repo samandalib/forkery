@@ -40,14 +40,439 @@ export class TemplatePanel {
         console.log('TemplatePanel: Received message:', message);
         switch (message.command) {
           case 'createProject':
-            // Execute the existing project creation command
-            vscode.commands.executeCommand('preview.createProject');
+            // Execute project creation with the specific template ID
+            this.createProjectWithTemplate(message.templateId, message.templateName);
             break;
         }
       }
     );
     
     console.log('TemplatePanel: View setup complete');
+  }
+
+  /**
+   * Create project directly with the selected template, bypassing the dropdown
+   */
+  private async createProjectWithTemplate(templateId: string, templateName: string): Promise<void> {
+    console.log(`TemplatePanel: Creating project with template ${templateId}: ${templateName}`);
+    
+    // Map template IDs to actual template commands
+    const templateMap: { [key: string]: { command: string, port: number, dependencies: string[] } } = {
+      'express-react': {
+        command: 'npm init -y && mkdir -p backend frontend',
+        port: 3000,
+        dependencies: ['express', 'react', 'react-dom', 'cors', 'nodemon']
+      },
+      'node-nextjs': {
+        command: 'npm init -y && mkdir -p backend frontend',
+        port: 3000,
+        dependencies: ['express', 'next', 'react', 'react-dom', 'cors', 'nodemon']
+      },
+      'simple-react': {
+        command: 'npm init -y && npm install react react-dom && npm install --save-dev @vitejs/plugin-react vite && mkdir -p src && echo \'{"scripts":{"dev":"vite","build":"vite build","preview":"vite preview"}}\' > package.json && echo "import React from \'react\'; import ReactDOM from \'react-dom/client\'; import App from \'./App\'; ReactDOM.createRoot(document.getElementById(\'root\')).render(<App />);" > main.jsx && echo "import React from \'react\'; function App() { return <div><h1>Simple React App</h1><p>Built with Vite</p></div>; } export default App;" > App.jsx && echo "<!DOCTYPE html><html><head><title>React App</title></head><body><div id=\"root\"></div><script type=\"module\" src=\"/main.jsx\"></script></body></html>" > index.html && mv *.jsx src/ && mv index.html . && echo "import { defineConfig } from \'vite\'; import react from \'@vitejs/plugin-react\'; export default defineConfig({ plugins: [react()] });" > vite.config.js',
+        port: 5173,
+        dependencies: ['vite', 'react', 'react-dom']
+      },
+      'nextjs-app': {
+        command: 'npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes --use-npm',
+        port: 3000,
+        dependencies: ['next', 'react', 'react-dom']
+      },
+      'simple-html': {
+        command: 'npm init -y && npm install --save-dev live-server && echo \'{"scripts":{"start":"live-server --port=8080 --open=/","dev":"live-server --port=8080 --open=/"}}\' > package.json && echo "<!DOCTYPE html><html><head><title>Simple HTML Site</title><style>body{font-family:Arial,sans-serif;margin:40px;background:#f5f5f5}h1{color:#333}p{color:#666}</style></head><body><h1>Welcome to Your HTML Site</h1><p>This is a simple HTML/CSS/JS site with live reload.</p><script>console.log(\'Site loaded!\');</script></body></html>" > index.html',
+        port: 8080,
+        dependencies: ['live-server']
+      }
+    };
+
+    const template = templateMap[templateId];
+    if (!template) {
+      vscode.window.showErrorMessage(`Unknown template: ${templateId}`);
+      return;
+    }
+
+    // Confirm project creation
+    const confirm = await vscode.window.showInformationMessage(
+      `Create new ${templateName} project? This will set up a ${templateName} project with port ${template.port}.`,
+      'Yes', 'No'
+    );
+
+    if (confirm !== 'Yes') return;
+
+    // Execute the project creation command directly
+    try {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        vscode.window.showErrorMessage('No workspace folder found');
+        return;
+      }
+
+      // Execute the command
+      await this.executeProjectCreation({
+        name: templateName,
+        description: `${templateName} project`,
+        command: template.command,
+        port: template.port,
+        dependencies: template.dependencies,
+        templateId: templateId
+      }, workspaceRoot);
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+    }
+  }
+
+  /**
+   * Execute project creation with the given template
+   */
+  private async executeProjectCreation(template: any, workspaceRoot: string): Promise<void> {
+    // Import the necessary modules
+    const vscode = require('vscode');
+    const child_process = require('child_process');
+    const fs = require('fs');
+
+    // Check if workspace already has content and offer cleanup
+    const files = fs.readdirSync(workspaceRoot);
+    const hasContent = files.some((file: string) => 
+      !file.startsWith('.') && file !== '.git' && file !== 'node_modules'
+    );
+
+    if (hasContent) {
+      const action = await vscode.window.showWarningMessage(
+        'This workspace contains files that may conflict with new project creation. What would you like to do?',
+        'Clean Workspace', 'Create Anyway', 'Cancel'
+      );
+      
+      if (action === 'Clean Workspace') {
+        // Simple cleanup - remove non-essential files
+        files.forEach((file: string) => {
+          if (!file.startsWith('.') && file !== '.git' && file !== 'node_modules') {
+            const filePath = require('path').join(workspaceRoot, file);
+            if (fs.lstatSync(filePath).isDirectory()) {
+              fs.rmSync(filePath, { recursive: true, force: true });
+            } else {
+              fs.unlinkSync(filePath);
+            }
+          }
+        });
+      } else if (action === 'Cancel') {
+        return;
+      }
+    }
+
+    // Show progress
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: `Creating ${template.name} project...`,
+      cancellable: false
+    }, async (progress: any) => {
+      progress.report({ message: 'Initializing project...' });
+
+      // Handle fullstack templates specially
+      if (template.templateId === 'express-react' || template.templateId === 'node-nextjs') {
+        await this.createFullstackProject(template, workspaceRoot, progress);
+        return;
+      }
+
+      // Execute the creation command for other templates
+      await new Promise<void>((resolve, reject) => {
+        const commandParts = template.command.split(' ');
+        const mainCommand = commandParts[0];
+        const args = commandParts.slice(1);
+        
+        console.log(`Executing: ${mainCommand} ${args.join(' ')}`);
+        
+        const childProcess = child_process.spawn(mainCommand, args, { 
+          cwd: workspaceRoot, 
+          stdio: 'pipe',
+          shell: true,
+          env: { ...process.env, FORCE_COLOR: '1' }
+        });
+
+        let output = '';
+        let errorOutput = '';
+        
+        childProcess.stdout?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          output += text;
+          console.log(`[STDOUT] ${text}`);
+          
+          if (text.includes('Installing packages') || text.includes('npm install')) {
+            progress.report({ message: 'Installing dependencies...' });
+          } else if (text.includes('Success!') || text.includes('Done') || text.includes('created successfully')) {
+            progress.report({ message: 'Project created successfully!' });
+          }
+        });
+
+        childProcess.stderr?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          errorOutput += text;
+          console.log(`[STDERR] ${text}`);
+        });
+
+        childProcess.on('error', (error: Error) => {
+          console.log(`[ERROR] Process error: ${error.message}`);
+          reject(new Error(`Process error: ${error.message}`));
+        });
+
+        childProcess.on('close', (code: number) => {
+          console.log(`[EXIT] Process exited with code ${code}`);
+          console.log(`[OUTPUT] Full output: ${output}`);
+          
+          if (code === 0) {
+            vscode.window.showInformationMessage(
+              `🎉 ${template.name} project created successfully! Start preview now?`,
+              'Start Preview', 'Not Now'
+            ).then((action: string | undefined) => {
+              if (action === 'Start Preview') {
+                vscode.commands.executeCommand('preview.run');
+              }
+            });
+            resolve();
+          } else {
+            reject(new Error(`Process exited with code ${code}: ${errorOutput}`));
+          }
+        });
+      });
+    });
+  }
+
+  /**
+   * Create fullstack project with proper file structure and scripts
+   */
+  private async createFullstackProject(template: any, workspaceRoot: string, progress: any): Promise<void> {
+    const fs = require('fs');
+    const path = require('path');
+    const child_process = require('child_process');
+
+    try {
+      progress.report({ message: 'Creating project structure...' });
+      
+      // Ensure directories exist
+      const backendPath = path.join(workspaceRoot, 'backend');
+      const frontendPath = path.join(workspaceRoot, 'frontend');
+      
+      // Create directories if they don't exist
+      if (!fs.existsSync(backendPath)) {
+        fs.mkdirSync(backendPath, { recursive: true });
+      }
+      if (!fs.existsSync(frontendPath)) {
+        fs.mkdirSync(frontendPath, { recursive: true });
+      }
+      
+      progress.report({ message: 'Setting up backend...' });
+      
+      // Setup backend
+      const backendPackageJson = {
+        name: 'backend',
+        version: '1.0.0',
+        scripts: {
+          start: 'node server.js',
+          dev: 'nodemon server.js'
+        },
+        dependencies: {
+          express: '^4.18.2',
+          cors: '^2.8.5'
+        },
+        devDependencies: {
+          nodemon: '^3.0.1'
+        }
+      };
+
+      fs.writeFileSync(path.join(backendPath, 'package.json'), JSON.stringify(backendPackageJson, null, 2));
+      
+      const serverJs = `const express = require('express');
+const cors = require('cors');
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+app.use(cors());
+app.use(express.json());
+
+app.get('/', (req, res) => {
+  res.json({ message: '${template.name} backend running!' });
+});
+
+app.listen(PORT, () => {
+  console.log(\`Server running on port \${PORT}\`);
+});`;
+
+      fs.writeFileSync(path.join(backendPath, 'server.js'), serverJs);
+
+      progress.report({ message: 'Installing backend dependencies...' });
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = require('child_process').spawn('npm', ['install'], { 
+          cwd: backendPath, 
+          stdio: 'pipe',
+          shell: true 
+        });
+        childProcess.on('close', (code: number) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Backend npm install failed with code ${code}`));
+        });
+      });
+
+      progress.report({ message: 'Setting up frontend...' });
+      
+      // Setup frontend
+      
+      if (template.templateId === 'express-react') {
+        // Create React + Vite frontend
+        const frontendPackageJson = {
+          name: 'frontend',
+          version: '1.0.0',
+          scripts: {
+            dev: 'vite',
+            build: 'vite build',
+            preview: 'vite preview'
+          },
+          dependencies: {
+            react: '^18.2.0',
+            'react-dom': '^18.2.0'
+          },
+          devDependencies: {
+            '@vitejs/plugin-react': '^4.0.3',
+            vite: '^4.4.5'
+          }
+        };
+
+        fs.writeFileSync(path.join(frontendPath, 'package.json'), JSON.stringify(frontendPackageJson, null, 2));
+        
+        const viteConfig = `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 3000
+  }
+})`;
+
+        fs.writeFileSync(path.join(frontendPath, 'vite.config.js'), viteConfig);
+        
+        const indexHtml = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${template.name}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>`;
+
+        fs.writeFileSync(path.join(frontendPath, 'index.html'), indexHtml);
+        
+        const srcPath = path.join(frontendPath, 'src');
+        fs.mkdirSync(srcPath, { recursive: true });
+        
+        const mainJsx = `import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+)`;
+
+        fs.writeFileSync(path.join(srcPath, 'main.jsx'), mainJsx);
+        
+        const appJsx = `import React from 'react'
+
+function App() {
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>${template.name}</h1>
+      <p>Backend: Express.js | Frontend: React + Vite</p>
+    </div>
+  )
+}
+
+export default App`;
+
+        fs.writeFileSync(path.join(srcPath, 'App.jsx'), appJsx);
+
+      } else if (template.templateId === 'node-nextjs') {
+        // Create Next.js frontend
+        progress.report({ message: 'Creating Next.js frontend...' });
+        await new Promise<void>((resolve, reject) => {
+          const childProcess = require('child_process').spawn('npx', ['create-next-app@latest', '.', '--typescript', '--tailwind', '--eslint', '--app', '--src-dir', '--import-alias', '@/*', '--yes', '--use-npm'], { 
+            cwd: frontendPath, 
+            stdio: 'pipe',
+            shell: true 
+          });
+          childProcess.on('close', (code: number) => {
+            if (code === 0) resolve();
+            else reject(new Error(`Next.js creation failed with code ${code}`));
+          });
+        });
+      }
+
+      progress.report({ message: 'Installing frontend dependencies...' });
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = require('child_process').spawn('npm', ['install'], { 
+          cwd: frontendPath, 
+          stdio: 'pipe',
+          shell: true 
+        });
+        childProcess.on('close', (code: number) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Frontend npm install failed with code ${code}`));
+        });
+      });
+
+      progress.report({ message: 'Setting up root package.json...' });
+      
+      // Create root package.json with fullstack scripts
+      const rootPackageJson = {
+        name: 'fullstack-project',
+        version: '1.0.0',
+        scripts: {
+          dev: 'concurrently "npm run dev:backend" "npm run dev:frontend"',
+          'dev:backend': 'cd backend && npm run dev',
+          'dev:frontend': 'cd frontend && npm run dev',
+          start: 'cd backend && npm start',
+          build: 'cd frontend && npm run build'
+        },
+        devDependencies: {
+          concurrently: '^8.2.0'
+        }
+      };
+
+      fs.writeFileSync(path.join(workspaceRoot, 'package.json'), JSON.stringify(rootPackageJson, null, 2));
+      
+      progress.report({ message: 'Installing root dependencies...' });
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = require('child_process').spawn('npm', ['install'], { 
+          cwd: workspaceRoot, 
+          stdio: 'pipe',
+          shell: true 
+        });
+        childProcess.on('close', (code: number) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Root npm install failed with code ${code}`));
+        });
+      });
+
+      progress.report({ message: 'Fullstack project created successfully!' });
+      
+      vscode.window.showInformationMessage(
+        `🎉 ${template.name} fullstack project created successfully! Start preview now?`,
+        'Start Preview', 'Not Now'
+      ).then((action: string | undefined) => {
+        if (action === 'Start Preview') {
+          vscode.commands.executeCommand('preview.run');
+        }
+      });
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to create fullstack project: ${error}`);
+      throw error;
+    }
   }
 
   /**
@@ -333,7 +758,7 @@ export class TemplatePanel {
       </head>
       <body>
         <div class="header">
-          <p>Decide what you want to make and see which tech stack can help you build it</p>
+          <p>Click on a template card to create your project instantly - no additional steps required!</p>
         </div>
         
         <div class="category">
@@ -477,9 +902,18 @@ export class TemplatePanel {
           document.querySelectorAll('.template-card').forEach(card => {
             card.addEventListener('click', function() {
               const templateId = this.getAttribute('data-template-id');
-              const templateName = this.querySelector('.template-title')?.textContent || 
-                                 this.querySelector('.framework')?.textContent || 
-                                 'Template';
+              let templateName = this.querySelector('.template-title')?.textContent;
+              
+              // For fullstack templates, construct name from framework sections
+              if (!templateName) {
+                const backendFramework = this.querySelector('.backend-section .framework')?.textContent;
+                const frontendFramework = this.querySelector('.frontend-section .framework')?.textContent;
+                if (backendFramework && frontendFramework) {
+                  templateName = backendFramework + ' + ' + frontendFramework;
+                } else {
+                  templateName = 'Template';
+                }
+              }
               
               // Send message to extension
               const vscode = acquireVsCodeApi();
