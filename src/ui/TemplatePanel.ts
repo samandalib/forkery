@@ -20,6 +20,8 @@ export class TemplatePanel {
 
   public setView(view: vscode.WebviewView): void {
     console.log('TemplatePanel: setView called with view:', view);
+    console.log('TemplatePanel: view.webview:', view.webview);
+    
     this.view = view;
     
     // Set webview options for security
@@ -27,12 +29,15 @@ export class TemplatePanel {
       enableScripts: true,
       localResourceRoots: []
     };
+    console.log('TemplatePanel: Webview options set');
     
     // Set the HTML content
     const htmlContent = this.getWebviewContent();
-    console.log('TemplatePanel: Setting HTML content, length:', htmlContent.length);
+    console.log('TemplatePanel: HTML content generated, length:', htmlContent.length);
+    console.log('TemplatePanel: HTML content preview:', htmlContent.substring(0, 200) + '...');
     
     this.view.webview.html = htmlContent;
+    console.log('TemplatePanel: HTML content set to webview');
     
     // Handle messages from webview
     this.view.webview.onDidReceiveMessage(

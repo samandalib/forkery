@@ -321,6 +321,115 @@ const enhancedProgress = {
 - **Responsiveness**: Works on all screen sizes and devices
 - **Integration**: Seamlessly works with existing progress systems
 
+## 🧠 Smart Workspace Detection System
+
+### **Overview**
+The Smart Workspace Detection System automatically determines whether a workspace contains an existing project or is empty, and dynamically switches the UI accordingly.
+
+### **How It Works**
+
+#### **1. Context Key Management**
+Instead of just `preview.isRunning`, we now use `preview.hasProject` for more accurate UI control:
+
+```json
+{
+  "views": {
+    "preview": [
+      {
+        "id": "preview.templates",
+        "when": "!preview.hasProject"  // Shows when no project exists
+      },
+      {
+        "id": "preview.control", 
+        "when": "preview.hasProject"   // Shows when project exists
+      }
+    ]
+  }
+}
+```
+
+#### **2. Project Detection Logic**
+The system checks for multiple project indicators:
+
+```typescript
+private checkForExistingProject(workspaceRoot: string): boolean {
+  // Check for package.json (Node.js projects)
+  const packageJsonPath = require('path').join(workspaceRoot, 'package.json');
+  if (require('fs').existsSync(packageJsonPath)) {
+    return true;
+  }
+
+  // Check for other project indicators
+  const projectIndicators = [
+    'package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml',
+    'composer.json', 'requirements.txt', 'Cargo.toml', 'pom.xml',
+    'build.gradle', 'Makefile', 'Dockerfile', '.gitignore',
+    'src/', 'app/', 'lib/', 'bin/', 'dist/', 'build/'
+  ];
+
+  return files.some(file => 
+    projectIndicators.some(indicator => 
+      file === indicator || file.startsWith(indicator.replace('/', ''))
+    )
+  );
+}
+```
+
+#### **3. Real-time Updates**
+The system automatically detects workspace changes:
+
+```typescript
+private setupWorkspaceChangeListener(): void {
+  // Listen for workspace folder changes
+  vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    this.detectWorkspaceState();
+  });
+
+  // Listen for file system changes
+  const fileSystemWatcher = vscode.workspace.createFileSystemWatcher('**/*');
+  fileSystemWatcher.onDidCreate(() => this.detectWorkspaceState());
+  fileSystemWatcher.onDidDelete(() => this.detectWorkspaceState());
+}
+```
+
+### **User Experience Flow**
+
+1. **Open Empty Workspace** → Template Panel appears automatically
+2. **Create Project** → UI switches to Project Control Panel
+3. **Delete Project Files** → UI switches back to Template Panel
+4. **Open Existing Project** → Project Control Panel appears immediately
+
+### **Benefits**
+
+- **Intelligent UI**: Automatically shows the right panel
+- **No Manual Switching**: Users don't need to manually change views
+- **Real-time Updates**: UI updates as workspace changes
+- **Better UX**: Context-appropriate interface always visible
+
+### **Technical Implementation**
+
+#### **UIManager Integration**
+```typescript
+public showAppropriateUI(): void {
+  // First, detect the current workspace state
+  this.detectWorkspaceState();
+  
+  // Then activate the preview sidebar
+  vscode.commands.executeCommand('workbench.view.extension.preview');
+}
+```
+
+#### **Context Key Setting**
+```typescript
+private setTemplateView(): void {
+  vscode.commands.executeCommand('setContext', 'preview.hasProject', false);
+}
+
+private setProjectControlView(): void {
+  vscode.commands.executeCommand('setContext', 'preview.hasProject', true);
+}
+```
+
 ## 🔮 Future Considerations
 
 ### **Extension to Avoid**
@@ -336,6 +445,8 @@ const enhancedProgress = {
 2. **Enhancing webview content** - Keep HTML valid
 3. **Adding new context keys** - Use simple boolean values
 4. **Improving view switching logic** - Test thoroughly
+5. **Enhancing workspace detection** - Add more project indicators
+6. **Improving real-time updates** - Optimize file system watching
 
 ---
 

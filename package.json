@@ -2,7 +2,7 @@
   "name": "cursor-preview",
   "displayName": "One-Click Local Preview",
   "description": "One-click local preview for designers - no terminal required",
-  "version": "0.1.6",
+  "version": "0.1.75",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -122,13 +122,13 @@
           "type": "webview",
           "id": "preview.templates",
           "name": "Project Templates",
-          "when": "!preview.isRunning"
+          "when": "!preview.hasProject"
         },
         {
           "type": "webview",
           "id": "preview.control",
           "name": "Project Control",
-          "when": "preview.isRunning"
+          "when": "preview.hasProject"
         }
       ]
     }

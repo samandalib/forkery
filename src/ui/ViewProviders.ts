@@ -15,8 +15,14 @@ export class TemplateViewProvider implements vscode.WebviewViewProvider {
     console.log('TemplateViewProvider: resolveWebviewView called');
     console.log('TemplateViewProvider: webviewView:', webviewView);
     console.log('TemplateViewProvider: context:', context);
+    console.log('TemplateViewProvider: templatePanel:', this.templatePanel);
     
-    this.templatePanel.setView(webviewView);
+    try {
+      this.templatePanel.setView(webviewView);
+      console.log('TemplateViewProvider: setView completed successfully');
+    } catch (error) {
+      console.error('TemplateViewProvider: Error in setView:', error);
+    }
     
     console.log('TemplateViewProvider: resolveWebviewView completed');
   }
@@ -32,6 +38,7 @@ export class ProjectControlViewProvider implements vscode.WebviewViewProvider {
     context: vscode.WebviewViewResolveContext,
     _token: vscode.CancellationToken,
   ) {
+    console.log('ProjectControlViewProvider: resolveWebviewView called');
     this.projectControlPanel.setView(webviewView);
   }
 }
