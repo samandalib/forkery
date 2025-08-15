@@ -1820,8 +1820,13 @@ Created with ❤️ by the One-Click Local Preview Extension
       const process = this.status.process;
       
       return new Promise<void>((resolve) => {
+        let resolved = false;
+        
         // Handle process exit
         process.once('exit', () => {
+          if (resolved) return;
+          resolved = true;
+          
           this.outputChannel.appendLine('✅ Main process exited gracefully');
           this.status.process = null;
           this.status.isRunning = false;
@@ -1857,19 +1862,56 @@ Created with ❤️ by the One-Click Local Preview Extension
         
         // Force kill after timeout if still running
         setTimeout(() => {
+          if (resolved) return;
+          
           if (process && !process.killed) {
             this.outputChannel.appendLine('⚠️ Process still running, sending SIGTERM...');
             process.kill('SIGTERM');
             
             // Final force kill if still running
             setTimeout(() => {
+              if (resolved) return;
+              
               if (process && !process.killed) {
                 this.outputChannel.appendLine('🚨 Process still running, sending SIGKILL...');
                 process.kill('SIGKILL');
+                
+                // Force resolve after SIGKILL
+                setTimeout(() => {
+                  if (resolved) return;
+                  this.outputChannel.appendLine('⚠️ Force resolving after SIGKILL...');
+                  resolved = true;
+                  resolve();
+                }, 1000);
+              } else {
+                // Process was killed, resolve
+                if (!resolved) {
+                  this.outputChannel.appendLine('⚠️ Process killed, resolving...');
+                  resolved = true;
+                  // Run cleanup before resolving
+                  this.cleanupRemainingProcesses().then(() => resolve());
+                }
               }
             }, 2000);
+          } else {
+            // Process was killed, resolve
+            if (!resolved) {
+              this.outputChannel.appendLine('⚠️ Process killed, resolving...');
+              resolved = true;
+              // Run cleanup before resolving
+              this.cleanupRemainingProcesses().then(() => resolve());
+            }
           }
         }, 3000);
+        
+        // Safety timeout - force resolve after 10 seconds
+        setTimeout(() => {
+          if (resolved) return;
+          this.outputChannel.appendLine('⚠️ Safety timeout reached, force resolving...');
+          resolved = true;
+          // Run cleanup before resolving
+          this.cleanupRemainingProcesses().then(() => resolve());
+        }, 10000);
       });
     } else {
       // No process to stop, just update status
