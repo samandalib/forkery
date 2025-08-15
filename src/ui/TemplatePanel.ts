@@ -107,29 +107,70 @@ export class TemplatePanel {
         return;
       }
 
-      // For fullstack templates, use the createFullstackProject method
-      if (templateId === 'express-react' || templateId === 'node-nextjs') {
-        const progress = {
+      // Show progress for all project creation methods
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Creating ${templateName} project...`,
+        cancellable: false
+      }, async (progress: any) => {
+        
+        // Create enhanced progress reporter that also updates webview
+        const enhancedProgress = {
           report: (message: { message: string }) => {
-            console.log(`Progress: ${message.message}`);
+            // Update VS Code progress
+            progress.report(message);
+            
+            // Update webview progress
+            if (this.view) {
+              this.view.webview.postMessage({
+                command: 'progressUpdate',
+                message: message.message
+              });
+            }
           }
         };
         
-        await this.createFullstackProject({
-          name: templateName,
-          templateId: templateId
-        }, workspaceRoot, progress);
-      } else {
-        // For non-fullstack templates, use the old method
-        await this.executeProjectCreation({
-          name: templateName,
-          description: `${templateName} project`,
-          command: template.command,
-          port: template.port,
-          dependencies: template.dependencies,
-          templateId: templateId
-        }, workspaceRoot);
-      }
+        try {
+          // For fullstack templates, use the createFullstackProject method
+          if (templateId === 'express-react' || templateId === 'node-nextjs') {
+            await this.createFullstackProject({
+              name: templateName,
+              templateId: templateId
+            }, workspaceRoot, enhancedProgress);
+          } else if (templateId === 'nextjs-app') {
+            // For Next.js templates, use the createNextJsProject method
+            await this.createNextJsProject({
+              name: templateName,
+              templateId: templateId
+            }, workspaceRoot, enhancedProgress);
+          } else {
+            // For other templates, use the executeProjectCreation method
+            await this.executeProjectCreation({
+              name: templateName,
+              description: `${templateName} project`,
+              command: template.command,
+              port: template.port,
+              dependencies: template.dependencies,
+              templateId: templateId
+            }, workspaceRoot);
+          }
+          
+          // Send completion message to webview
+          if (this.view) {
+            this.view.webview.postMessage({
+              command: 'progressComplete'
+            });
+          }
+        } catch (error) {
+          // Send completion message to webview even on error
+          if (this.view) {
+            this.view.webview.postMessage({
+              command: 'progressComplete'
+            });
+          }
+          throw error;
+        }
+      });
 
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to create project: ${error}`);
@@ -902,9 +943,97 @@ export default App`;
             background: #fd7e14 !important;
             color: #ffffff !important;
           }
+          
+          /* Progress Overlay Styles */
+          .progress-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+          }
+          
+          .progress-content {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          }
+          
+          .progress-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #3e3e42;
+            border-top: 4px solid #007acc;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+          }
+          
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          .progress-content h3 {
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            font-weight: 600;
+          }
+          
+          .progress-content p {
+            color: #cccccc;
+            margin: 0 0 20px 0;
+            font-size: 14px;
+            line-height: 1.4;
+          }
+          
+          .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #3e3e42;
+            border-radius: 3px;
+            overflow: hidden;
+          }
+          
+          .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007acc, #00b4d8);
+            border-radius: 3px;
+            animation: progress-fill 2s ease-in-out infinite;
+            width: 30%;
+          }
+          
+          @keyframes progress-fill {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+          }
         </style>
       </head>
       <body>
+        <!-- Progress Overlay -->
+        <div id="progress-overlay" class="progress-overlay" style="display: none;">
+          <div class="progress-content">
+            <div class="progress-spinner"></div>
+            <h3 id="progress-title">Creating Project...</h3>
+            <p id="progress-message">Initializing...</p>
+            <div class="progress-bar">
+              <div class="progress-fill"></div>
+            </div>
+          </div>
+        </div>
+        
         <div class="header">
           <p>Click on a template card to create your project instantly - no additional steps required!</p>
         </div>
@@ -1046,6 +1175,27 @@ export default App`;
         </div>
         
         <script>
+          // Progress overlay functions
+          function showProgress(title, message) {
+            const overlay = document.getElementById('progress-overlay');
+            const titleEl = document.getElementById('progress-title');
+            const messageEl = document.getElementById('progress-message');
+            
+            titleEl.textContent = title;
+            messageEl.textContent = message;
+            overlay.style.display = 'flex';
+          }
+          
+          function hideProgress() {
+            const overlay = document.getElementById('progress-overlay');
+            overlay.style.display = 'none';
+          }
+          
+          function updateProgress(message) {
+            const messageEl = document.getElementById('progress-message');
+            messageEl.textContent = message;
+          }
+          
           // Make all template cards clickable
           document.querySelectorAll('.template-card').forEach(card => {
             card.addEventListener('click', function() {
@@ -1063,6 +1213,9 @@ export default App`;
                 }
               }
               
+              // Show progress overlay immediately
+              showProgress('Creating Project...', 'Initializing...');
+              
               // Send message to extension
               const vscode = acquireVsCodeApi();
               vscode.postMessage({
@@ -1071,6 +1224,17 @@ export default App`;
                 templateName: templateName
               });
             });
+          });
+          
+          // Listen for progress updates from extension
+          window.addEventListener('message', event => {
+            const message = event.data;
+            
+            if (message.command === 'progressUpdate') {
+              updateProgress(message.message);
+            } else if (message.command === 'progressComplete') {
+              hideProgress();
+            }
           });
         </script>
       </body>

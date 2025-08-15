@@ -20,6 +20,7 @@ Perfect for designers who want to focus on their work, not terminal commands!
 - 🎛️ **Easy Controls** - Start, stop, and restart from the status bar
 - 🌐 **Flexible Preview** - Opens in Cursor's Simple Browser or external browser
 - 📱 **Status Indicators** - Always know what's running and where
+- ⏳ **Progress Indicators** - Real-time visual feedback during project creation
 
 ## 🚀 Quick Start
 
