@@ -237,9 +237,9 @@ export class ProjectControlPanel {
                     }
 
                     .status-badge {
-                        padding: 6px 16px;
-                        border-radius: 20px;
-                        font-size: 14px;
+                        padding: 4px 12px;
+                        border-radius: 16px;
+                        font-size: 12px;
                         font-weight: 500;
                         text-transform: uppercase;
                         letter-spacing: 0.5px;
@@ -396,7 +396,7 @@ export class ProjectControlPanel {
                     <div class="status-section fade-in">
                         <div class="status-header">
                             <div class="status-title">Project Status</div>
-                            <div class="status-badge status-running">Running</div>
+                            <div class="status-badge status-stopped" id="status-badge">Stopped</div>
                         </div>
                         
                         <div class="control-buttons">
@@ -435,15 +435,15 @@ export class ProjectControlPanel {
                         <div class="project-info-compact">
                             <span class="info-item">
                                 <span class="info-label">Project:</span>
-                                <span class="info-value">express-react-fullstack</span>
+                                <span class="info-value" id="project-name">Loading...</span>
                             </span>
                             <span class="info-item">
                                 <span class="info-label">Framework:</span>
-                                <span class="info-value">Fullstack (Express + React)</span>
+                                <span class="info-value" id="project-framework">Loading...</span>
                             </span>
                             <span class="info-item">
                                 <span class="info-label">Port:</span>
-                                <span class="info-value">3000</span>
+                                <span class="info-value" id="project-port">Loading...</span>
                             </span>
                         </div>
                     </div>
@@ -453,7 +453,7 @@ export class ProjectControlPanel {
                     const vscode = acquireVsCodeApi();
                     
                     // Interactive functionality for the Project Control Panel
-                    let projectStatus = 'running';
+                    let projectStatus = 'stopped';
 
                     // Handle messages from extension
                     window.addEventListener('message', event => {
@@ -470,32 +470,38 @@ export class ProjectControlPanel {
 
                     function updateProjectInfo(data) {
                         // Update project name
-                        const nameElement = document.querySelector('.info-value');
-                        if (nameElement) {
+                        const nameElement = document.getElementById('project-name');
+                        if (nameElement && data.name) {
                             nameElement.textContent = data.name;
                         }
                         
                         // Update framework
-                        const frameworkElement = document.querySelector('.info-value:nth-child(2)');
-                        if (frameworkElement) {
+                        const frameworkElement = document.getElementById('project-framework');
+                        if (frameworkElement && data.framework) {
                             frameworkElement.textContent = data.framework;
                         }
                         
                         // Update port
-                        const portElement = document.querySelector('.info-value:nth-child(3)');
-                        if (portElement) {
+                        const portElement = document.getElementById('project-port');
+                        if (portElement && data.port) {
                             portElement.textContent = data.port;
                         }
                         
                         // Update status badge
-                        updateProjectStatus(data.status);
+                        if (data.status) {
+                            updateProjectStatus(data.status);
+                        }
                     }
 
                     function updateProjectStatus(status) {
                         projectStatus = status;
-                        const statusBadge = document.querySelector('.status-badge');
+                        const statusBadge = document.getElementById('status-badge');
                         if (statusBadge) {
-                            statusBadge.className = \`status-badge status-\${status}\`;
+                            // Remove all existing status classes
+                            statusBadge.className = 'status-badge';
+                            // Add the new status class
+                            statusBadge.classList.add(\`status-\${status}\`);
+                            // Update the text
                             statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
                         }
                     }
@@ -534,6 +540,9 @@ export class ProjectControlPanel {
 
                     // Request project info on load
                     vscode.postMessage({ command: 'getProjectInfo' });
+                    
+                    // Initialize status on load
+                    updateProjectStatus('stopped');
 
                     console.log('Project Control Panel loaded successfully!');
                     console.log('Features: Interactive controls, notification system');
@@ -545,47 +554,93 @@ export class ProjectControlPanel {
 
     private async startServer() {
         try {
-            vscode.window.showInformationMessage('Starting the server...');
-            // TODO: Implement actual server start logic
+            vscode.window.showInformationMessage('🚀 Starting the server...');
+            
+            // Execute the preview command to start the development server
+            await vscode.commands.executeCommand('preview.run');
+            
+            // Update the status to show server is starting
             this.updateProjectStatus('starting');
+            
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to start server: ${error}`);
+            this.updateProjectStatus('stopped');
         }
     }
 
     private async restartServer() {
         try {
-            vscode.window.showInformationMessage('Restarting the server...');
-            // TODO: Implement actual server restart logic
+            vscode.window.showInformationMessage('🔄 Restarting the server...');
+            
+            // Execute the restart command
+            await vscode.commands.executeCommand('preview.restart');
+            
+            // Update the status to show server is starting
             this.updateProjectStatus('starting');
+            
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to restart server: ${error}`);
+            this.updateProjectStatus('stopped');
         }
     }
 
     private async stopServer() {
         try {
-            vscode.window.showInformationMessage('Stopping the server...');
-            // TODO: Implement actual server stop logic
+            vscode.window.showInformationMessage('🛑 Stopping the server...');
+            
+            // Execute the stop command
+            await vscode.commands.executeCommand('preview.stop');
+            
+            // Update the status to show server is stopped
             this.updateProjectStatus('stopped');
+            
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to stop server: ${error}`);
+            this.updateProjectStatus('stopped');
         }
     }
 
     private async previewApp() {
         try {
-            vscode.window.showInformationMessage('Opening preview...');
-            // TODO: Implement actual preview logic
+            vscode.window.showInformationMessage('🚀 Starting project preview...');
+            
+            // Execute the preview command to start the development server
+            await vscode.commands.executeCommand('preview.run');
+            
+            // Update the status to show preview is starting
+            this.updateProjectStatus('starting');
+            
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to open preview: ${error}`);
+            vscode.window.showErrorMessage(`Failed to start preview: ${error}`);
+            this.updateProjectStatus('stopped');
         }
     }
 
     private async openInBrowser() {
         try {
-            vscode.window.showInformationMessage('Opening in browser...');
-            // TODO: Implement actual browser opening logic
+            // Get the current project's URL from the extension
+            const workspaceFolders = vscode.workspace.workspaceFolders;
+            if (!workspaceFolders || workspaceFolders.length === 0) {
+                vscode.window.showErrorMessage('No workspace found');
+                return;
+            }
+
+            const projectPath = workspaceFolders[0].uri.fsPath;
+            const packageJsonPath = path.join(projectPath, 'package.json');
+            
+            if (fs.existsSync(packageJsonPath)) {
+                const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+                const port = this.detectPort(packageJson);
+                const url = `http://localhost:${port}`;
+                
+                vscode.window.showInformationMessage(`🌐 Opening ${url} in browser...`);
+                
+                // Open the URL in the default browser
+                await vscode.env.openExternal(vscode.Uri.parse(url));
+            } else {
+                vscode.window.showErrorMessage('No package.json found. Please start the preview first.');
+            }
+            
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to open in browser: ${error}`);
         }
@@ -596,17 +651,12 @@ export class ProjectControlPanel {
             // Get project info from workspace
             const workspaceFolders = vscode.workspace.workspaceFolders;
             if (!workspaceFolders || workspaceFolders.length === 0) {
-                if (this._panel) {
-                    this._panel.webview.postMessage({
-                        command: 'updateProjectInfo',
-                        data: {
-                            name: 'No project open',
-                            framework: 'Unknown',
-                            port: 'N/A',
-                            status: 'stopped'
-                        }
-                    });
-                }
+                this.sendProjectInfo({
+                    name: 'No project open',
+                    framework: 'Unknown',
+                    port: 'N/A',
+                    status: 'stopped'
+                });
                 return;
             }
 
@@ -618,22 +668,48 @@ export class ProjectControlPanel {
                 const projectName = packageJson.name || path.basename(projectPath);
                 const framework = this.detectFramework(packageJson);
                 const port = this.detectPort(packageJson);
-                const status = 'running'; // TODO: Actually detect server status
+                const status = 'stopped'; // Start with stopped, will be updated by actual status
 
-                if (this._panel) {
-                    this._panel.webview.postMessage({
-                        command: 'updateProjectInfo',
-                        data: {
-                            name: projectName,
-                            framework: framework,
-                            port: port,
-                            status: status
-                        }
-                    });
-                }
+                this.sendProjectInfo({
+                    name: projectName,
+                    framework: framework,
+                    port: port,
+                    status: status
+                });
+            } else {
+                // No package.json found
+                this.sendProjectInfo({
+                    name: 'No package.json found',
+                    framework: 'Unknown',
+                    port: 'N/A',
+                    status: 'stopped'
+                });
             }
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to get project info: ${error}`);
+            this.sendProjectInfo({
+                name: 'Error loading project',
+                framework: 'Unknown',
+                port: 'N/A',
+                status: 'stopped'
+            });
+        }
+    }
+
+    private sendProjectInfo(data: any) {
+        const message = {
+            command: 'updateProjectInfo',
+            data: data
+        };
+
+        // Send to panel if it exists
+        if (this._panel) {
+            this._panel.webview.postMessage(message);
+        }
+        
+        // Send to view if it exists
+        if (this._view) {
+            this._view.webview.postMessage(message);
         }
     }
 
@@ -658,20 +734,45 @@ export class ProjectControlPanel {
         // Look for port in scripts
         for (const [name, script] of Object.entries(scripts)) {
             if (typeof script === 'string') {
-                const portMatch = script.match(/--port[=\s](\d+)/);
+                // Check for various port patterns
+                const portMatch = script.match(/(?:--port[=\s]|PORT=)(\d+)/);
                 if (portMatch) return portMatch[1];
+                
+                // Check for vite dev server
+                if (script.includes('vite') && script.includes('dev')) {
+                    return '5173'; // Vite default port
+                }
+                
+                // Check for next.js
+                if (script.includes('next') && script.includes('dev')) {
+                    return '3000'; // Next.js default port
+                }
             }
         }
         
-        return '3000'; // Default port
+        // Framework-specific defaults
+        const dependencies = packageJson.dependencies || {};
+        if (dependencies['vite']) return '5173';
+        if (dependencies['next']) return '3000';
+        if (dependencies['react-scripts']) return '3000';
+        
+        return '3000'; // General default port
     }
 
     private updateProjectStatus(status: string) {
+        const message = {
+            command: 'updateStatus',
+            data: { status: status }
+        };
+
+        // Send to panel if it exists
         if (this._panel) {
-            this._panel.webview.postMessage({
-                command: 'updateStatus',
-                data: { status: status }
-            });
+            this._panel.webview.postMessage(message);
+        }
+        
+        // Send to view if it exists
+        if (this._view) {
+            this._view.webview.postMessage(message);
         }
     }
 
