@@ -312,4 +312,69 @@ If the UI is completely broken:
 
 ---
 
+## 🚨 Critical Bug: Status Override Issue (v0.1.8)
+
+### **Problem Description**
+The Project Control Panel status was incorrectly reverting to "STOPPED" even when the server was running, causing button states to be backwards.
+
+### **Symptoms**
+- ✅ Server starts correctly and status shows "STARTING" → "RUNNING"
+- ❌ But then status immediately reverts to "STOPPED"
+- ❌ Start button becomes enabled, Stop button becomes disabled
+- ❌ User sees server running in browser but UI shows "STOPPED"
+
+### **Root Cause**
+The `getProjectInfo()` method in `ProjectControlPanel.ts` was **hardcoded** to always send `status: 'stopped'`, even when the server was running. This caused a race condition:
+
+1. Server starts → Status becomes `running` → Buttons update correctly
+2. `getProjectInfo()` gets called → Sends `status: 'stopped'` → **Overrides the running status**
+3. UI reverts to stopped state → Start button enabled, Stop button disabled
+
+### **Debug Evidence**
+Console logs showed the sequence:
+```
+ProjectControlPanel: updateProjectStatus called with: running
+ProjectControlPanel: Setting running state - Start button disabled, Stop button enabled
+ProjectControlPanel: Status updated to: running Button states updated
+ProjectControlPanel: Received message: {command: "updateProjectInfo", data: {port: "3000", status: "stopped"}}
+ProjectControlPanel: Processing updateProjectInfo
+ProjectControlPanel: updateProjectStatus called with: stopped
+ProjectControlPanel: Setting stopped state - Start button enabled, Stop button disabled
+```
+
+### **Solution**
+1. **Removed hardcoded status** from `getProjectInfo()` - it now only sends port information
+2. **Enhanced logging** to show exactly what's happening
+3. **Status updates only happen** when explicitly requested via `updateStatus` messages
+
+### **Code Changes**
+```typescript
+// Before (PROBLEMATIC):
+this.sendProjectInfo({
+    port: port,
+    status: 'stopped'  // ❌ Always overrides actual status
+});
+
+// After (FIXED):
+this.sendProjectInfo({
+    port: port
+    // ✅ No status override - preserves actual server status
+});
+```
+
+### **Expected Behavior After Fix**
+1. Click "Start Server" → Status: `starting` → Start button loading, Stop button disabled
+2. Server ready → Status: `running` → Start button disabled, Stop button enabled ✅
+3. Status stays `running` → No more overriding by `getProjectInfo()` ✅
+4. Click "Stop Server" → Status: `stopping` → Start button disabled, Stop button loading
+5. Server stopped → Status: `stopped` → Start button enabled, Stop button disabled ✅
+
+### **Prevention**
+- Never hardcode status values in methods that get called during normal operation
+- Use explicit status update messages for status changes
+- Keep project info updates separate from status updates
+- Add comprehensive logging to trace status flow
+
+---
+
 **Remember**: The UI is fragile and depends on precise configuration. Small changes can break everything. Always test thoroughly and document any fixes that work.

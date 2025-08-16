@@ -248,6 +248,11 @@ export class ProjectControlPanel {
                         color: #ffffff;
                     }
 
+                    .status-stopping {
+                        background: #ff9800;
+                        color: #ffffff;
+                    }
+
                     /* Compact Project Info */
                     .project-info-compact {
                         margin-top: 20px;
@@ -297,6 +302,46 @@ export class ProjectControlPanel {
                         text-decoration: none;
                         color: #ffffff;
                         background: #363636;
+                        position: relative;
+                        min-width: 120px;
+                        justify-content: center;
+                    }
+
+                    .btn:disabled {
+                        opacity: 0.6;
+                        cursor: not-allowed;
+                        transform: none !important;
+                    }
+
+                    .btn.loading {
+                        cursor: not-allowed;
+                        opacity: 0.8;
+                    }
+
+                    .btn.loading .btn-icon,
+                    .btn.loading .btn-text {
+                        opacity: 0.3;
+                    }
+
+                    .btn.loading .btn-spinner {
+                        display: block !important;
+                        position: absolute;
+                        left: 50%;
+                        top: 50%;
+                        transform: translate(-50%, -50%);
+                    }
+
+                    .btn-spinner {
+                        display: none;
+                    }
+
+                    .btn-spinner svg {
+                        animation: spin 1s linear infinite;
+                    }
+
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
                     }
 
                     .btn:hover {
@@ -389,16 +434,32 @@ export class ProjectControlPanel {
                         
                         <div class="control-buttons">
                             <button class="btn" id="start-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M8 5v14l11-7z"/>
                                 </svg>
-                                Start Server
+                                <span class="btn-text">Start Server</span>
+                                <div class="btn-spinner" style="display: none;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                                            <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
+                                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
+                                        </circle>
+                                    </svg>
+                                </div>
                             </button>
                             <button class="btn" id="stop-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="color: #f44336;">
+                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="color: #f44336;">
                                     <path d="M6 6h12v12H6z"/>
                                 </svg>
-                                Stop Server
+                                <span class="btn-text">Stop Server</span>
+                                <div class="btn-spinner" style="display: none;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                                            <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
+                                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
+                                        </circle>
+                                    </svg>
+                                </div>
                             </button>
                         </div>
 
@@ -420,30 +481,39 @@ export class ProjectControlPanel {
                     // Handle messages from extension
                     window.addEventListener('message', event => {
                         const message = event.data;
+                        console.log('ProjectControlPanel: Received message:', message);
                         switch (message.command) {
                             case 'updateProjectInfo':
+                                console.log('ProjectControlPanel: Processing updateProjectInfo');
                                 updateProjectInfo(message.data);
                                 break;
                             case 'updateStatus':
+                                console.log('ProjectControlPanel: Processing updateStatus');
                                 updateProjectStatus(message.data.status);
                                 break;
                         }
                     });
 
                     function updateProjectInfo(data) {
+                        console.log('ProjectControlPanel: updateProjectInfo called with:', data);
+                        
                         // Update port
                         const portElement = document.getElementById('project-port');
                         if (portElement && data.port) {
                             portElement.textContent = data.port;
                         }
                         
-                        // Update status badge
+                        // Only update status if explicitly provided (don't override current status)
                         if (data.status) {
+                            console.log('ProjectControlPanel: Status provided in updateProjectInfo, updating to:', data.status);
                             updateProjectStatus(data.status);
+                        } else {
+                            console.log('ProjectControlPanel: No status provided in updateProjectInfo, keeping current status:', projectStatus);
                         }
                     }
 
                     function updateProjectStatus(status) {
+                        console.log('ProjectControlPanel: updateProjectStatus called with:', status);
                         projectStatus = status;
                         const statusBadge = document.getElementById('status-badge');
                         if (statusBadge) {
@@ -454,18 +524,67 @@ export class ProjectControlPanel {
                             // Update the text
                             statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
                         }
+                        
+                        // Update button states based on status
+                        updateButtonStates(status);
+                        console.log('ProjectControlPanel: Status updated to:', status, 'Button states updated');
                     }
 
                     // Control button functionality
                     document.getElementById('start-btn').addEventListener('click', function(e) {
                         e.preventDefault();
+                        setButtonLoading('start-btn', true);
                         vscode.postMessage({ command: 'startServer' });
                     });
                     
                     document.getElementById('stop-btn').addEventListener('click', function(e) {
                         e.preventDefault();
+                        setButtonLoading('stop-btn', true);
                         vscode.postMessage({ command: 'stopServer' });
                     });
+
+                    function setButtonLoading(buttonId, isLoading) {
+                        const button = document.getElementById(buttonId);
+                        if (button) {
+                            if (isLoading) {
+                                button.classList.add('loading');
+                                button.disabled = true;
+                            } else {
+                                button.classList.remove('loading');
+                                button.disabled = false;
+                            }
+                        }
+                    }
+
+                    function updateButtonStates(status) {
+                        console.log('ProjectControlPanel: updateButtonStates called with:', status);
+                        const startBtn = document.getElementById('start-btn');
+                        const stopBtn = document.getElementById('stop-btn');
+                        
+                        if (status === 'starting') {
+                            console.log('ProjectControlPanel: Setting starting state - Start button loading, Stop button disabled');
+                            setButtonLoading('start-btn', true);
+                            setButtonLoading('stop-btn', false);
+                            stopBtn.disabled = true;
+                        } else if (status === 'running') {
+                            console.log('ProjectControlPanel: Setting running state - Start button disabled, Stop button enabled');
+                            setButtonLoading('start-btn', false);
+                            setButtonLoading('stop-btn', false);
+                            startBtn.disabled = true;
+                            stopBtn.disabled = false;
+                        } else if (status === 'stopping') {
+                            console.log('ProjectControlPanel: Setting stopping state - Start button disabled, Stop button loading');
+                            setButtonLoading('start-btn', false);
+                            setButtonLoading('stop-btn', true);
+                            startBtn.disabled = true;
+                        } else if (status === 'stopped') {
+                            console.log('ProjectControlPanel: Setting stopped state - Start button enabled, Stop button disabled');
+                            setButtonLoading('start-btn', false);
+                            setButtonLoading('stop-btn', false);
+                            startBtn.disabled = false;
+                            stopBtn.disabled = true;
+                        }
+                    }
 
                     // Request project info on load
                     vscode.postMessage({ command: 'getProjectInfo' });
@@ -485,11 +604,14 @@ export class ProjectControlPanel {
         try {
             vscode.window.showInformationMessage('🚀 Starting the server...');
             
+            // Update the status to show server is starting
+            this.updateProjectStatus('starting');
+            
             // Execute the preview command to start the development server
             await vscode.commands.executeCommand('preview.run');
             
-            // Update the status to show server is starting
-            this.updateProjectStatus('starting');
+            // Note: The status will be updated to 'running' by the extension
+            // when the server is actually ready
             
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to start server: ${error}`);
@@ -502,6 +624,9 @@ export class ProjectControlPanel {
     private async stopServer() {
         try {
             vscode.window.showInformationMessage('🛑 Stopping the server...');
+            
+            // Update the status to show server is stopping
+            this.updateProjectStatus('stopping');
             
             // Execute the stop command
             await vscode.commands.executeCommand('preview.stop');
@@ -524,10 +649,10 @@ export class ProjectControlPanel {
             // Get project info from workspace
             const workspaceFolders = vscode.workspace.workspaceFolders;
             if (!workspaceFolders || workspaceFolders.length === 0) {
-                            this.sendProjectInfo({
-                port: 'N/A',
-                status: 'stopped'
-            });
+                this.sendProjectInfo({
+                    port: 'N/A',
+                    status: 'stopped'
+                });
                 return;
             }
 
@@ -539,24 +664,24 @@ export class ProjectControlPanel {
                 const projectName = packageJson.name || path.basename(projectPath);
                 const framework = this.detectFramework(packageJson);
                 const port = this.detectPort(packageJson);
-                const status = 'stopped'; // Start with stopped, will be updated by actual status
-
+                
+                // Don't override the current status - just send port info
                 this.sendProjectInfo({
-                    port: port,
-                    status: status
+                    port: port
+                    // Removed status: 'stopped' to prevent overriding actual server status
                 });
             } else {
                 // No package.json found
                 this.sendProjectInfo({
-                    port: 'N/A',
-                    status: 'stopped'
+                    port: 'N/A'
+                    // Removed status: 'stopped' to prevent overriding actual server status
                 });
             }
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to get project info: ${error}`);
             this.sendProjectInfo({
-                port: 'N/A',
-                status: 'stopped'
+                port: 'N/A'
+                // Removed status: 'stopped' to prevent overriding actual server status
             });
         }
     }
@@ -642,12 +767,27 @@ export class ProjectControlPanel {
     }
 
     public updateStatus(status: any) {
-        // Update status for both panel and view
+        // Determine the status string based on the status object
+        let statusString = 'stopped';
+        if (status.isRunning) {
+            statusString = 'running';
+        } else if (status.isStarting) {
+            statusString = 'starting';
+        }
+        
+        const message = {
+            command: 'updateStatus',
+            data: { status: statusString }
+        };
+
+        // Send to panel if it exists
         if (this._panel) {
-            this._panel.webview.postMessage({
-                command: 'updateStatus',
-                data: { status: status.isRunning ? 'running' : 'stopped' }
-            });
+            this._panel.webview.postMessage(message);
+        }
+        
+        // Send to view if it exists
+        if (this._view) {
+            this._view.webview.postMessage(message);
         }
         
         // Also update project info if available

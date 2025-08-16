@@ -162,6 +162,17 @@ export class UIManager {
     
     // Set the context key that controls which view is shown
     vscode.commands.executeCommand('setContext', 'preview.isRunning', status.isRunning);
+    
+    // Send status update to Project Control Panel if it exists
+    if (ProjectControlPanel.currentView) {
+      ProjectControlPanel.currentView.updateStatus({
+        isRunning: status.isRunning,
+        port: status.port,
+        url: status.url,
+        framework: status.framework,
+        projectName: status.projectName
+      });
+    }
   }
 
   /**
