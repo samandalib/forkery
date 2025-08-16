@@ -17,6 +17,7 @@ This folder contains detailed technical documentation for the Pistachio extensio
 ### **System & Extensions**
 - **[EXTENSION_ID_RESOLUTION_FIX.md](./EXTENSION_ID_RESOLUTION_FIX.md)** - Extension activation fixes
 - **[CURRENT_ARCHITECTURE_LIMITATIONS.md](./CURRENT_ARCHITECTURE_LIMITATIONS.md)** - Current system limitations and trade-offs
+- **[EXTENSION_NAMING_CHANGE_GUIDE.md](./EXTENSION_NAMING_CHANGE_GUIDE.md)** - Complete guide for changing extension names
 
 ## 🎯 Purpose
 
@@ -32,6 +33,7 @@ These documents are designed for:
 - **Port Problems**: Use [PORT_HANDLING.md](./PORT_HANDLING.md) for port conflicts
 - **Architecture Questions**: Use [UI_ARCHITECTURE_LEARNINGS.md](./UI_ARCHITECTURE_LEARNINGS.md) for design insights
 - **Future Planning**: Use [COOPERATIVE_PORT_MANAGEMENT_PLAN.md](./COOPERATIVE_PORT_MANAGEMENT_PLAN.md) for roadmap
+- **Extension Naming**: Use [EXTENSION_NAMING_CHANGE_GUIDE.md](./EXTENSION_NAMING_CHANGE_GUIDE.md) for rebranding
 
 ## 💡 What You'll Learn
 

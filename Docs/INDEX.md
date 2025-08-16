@@ -1,6 +1,6 @@
-# 📚 Pistachio Extension - Documentation Index
+# 📚 Pistachio Vibe Extension - Documentation Index
 
-Welcome to the comprehensive documentation for **Pistachio: Visual App Creation for Everyone**. This folder contains all the documentation needed to understand, develop, test, and use the extension.
+Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Creation for Everyone**. This folder contains all the documentation needed to understand, develop, test, and use the extension.
 
 ## 📁 **Documentation Organization**
 
@@ -23,6 +23,7 @@ Welcome to the comprehensive documentation for **Pistachio: Visual App Creation 
 - **[SIMPLE_HTML_PORT_FIX.md](./03-Technical/SIMPLE_HTML_PORT_FIX.md)** - HTML project port handling
 - **[COOPERATIVE_PORT_MANAGEMENT_PLAN.md](./03-Technical/COOPERATIVE_PORT_MANAGEMENT_PLAN.md)** - Future port management improvements
 - **[CURRENT_ARCHITECTURE_LIMITATIONS.md](./03-Technical/CURRENT_ARCHITECTURE_LIMITATIONS.md)** - Current system limitations and trade-offs
+- **[EXTENSION_NAMING_CHANGE_GUIDE.md](./03-Technical/EXTENSION_NAMING_CHANGE_GUIDE.md)** - Complete guide for changing extension names
 
 ### **04-Publishing/** 🚀 **Release & Distribution**
 - **[PUBLISHING_CHECKLIST.md](./04-Publishing/PUBLISHING_CHECKLIST.md)** - Complete publishing workflow
@@ -63,7 +64,7 @@ Welcome to the comprehensive documentation for **Pistachio: Visual App Creation 
 
 ## 🎨 **What is Pistachio?**
 
-**Pistachio** is a VS Code extension that transforms how you create and preview web applications by removing technical barriers. It enables:
+**Pistachio Vibe** is a VS Code extension that transforms how you create and preview web applications by removing technical barriers. It enables:
 
 - **🎨 Designers** to build prototypes without terminal knowledge
 - **🚀 Visual Coders** to create apps through intuitive interfaces

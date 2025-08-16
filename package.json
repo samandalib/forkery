@@ -1,8 +1,8 @@
 {
-  "name": "pistachio",
-  "displayName": "Pistachio: Visual Vibe coding in IDE",
+  "name": "pistachio-vibe",
+  "displayName": "Pistachio Vibe: Visual App Creation",
   "description": "Visual Vibe coding in IDE - one-click local previews with zero terminal knowledge required",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "H10B",
   "license": "MIT",
   "repository": {
@@ -45,62 +45,62 @@
   "banner": "assets/banners/pistachio-banner-1280x200.png",
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:pistachio.run",
-    "onCommand:pistachio.stop",
-    "onCommand:pistachio.restart",
-    "onCommand:pistachio.createProject",
-    "onCommand:pistachio.showUI",
-    "onCommand:pistachio.showTemplates",
-    "onCommand:pistachio.showProjectControl",
-    "onCommand:pistachio.reloadUI"
+    "onCommand:pistachio-vibe.run",
+    "onCommand:pistachio-vibe.stop",
+    "onCommand:pistachio-vibe.restart",
+    "onCommand:pistachio-vibe.createProject",
+    "onCommand:pistachio-vibe.showUI",
+    "onCommand:pistachio-vibe.showTemplates",
+    "onCommand:pistachio-vibe.showProjectControl",
+    "onCommand:pistachio-vibe.reloadUI"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "pistachio.run",
-        "title": "Pistachio: Start Preview Server",
+        "command": "pistachio-vibe.run",
+        "title": "Pistachio Vibe: Start Preview Server",
         "category": "Pistachio",
         "icon": "$(play)"
       },
       {
-        "command": "pistachio.stop",
-        "title": "Pistachio: Stop Preview Server",
+        "command": "pistachio-vibe.stop",
+        "title": "Pistachio Vibe: Stop Preview Server",
         "category": "Pistachio",
         "icon": "$(stop)"
       },
       {
-        "command": "pistachio.restart",
-        "title": "Pistachio: Restart Preview Server",
+        "command": "pistachio-vibe.restart",
+        "title": "Pistachio Vibe: Restart Preview Server",
         "category": "Pistachio",
         "icon": "$(refresh)"
       },
       {
-        "command": "pistachio.createProject",
-        "title": "Pistachio: Create New Project",
+        "command": "pistachio-vibe.createProject",
+        "title": "Pistachio Vibe: Create New Project",
         "category": "Pistachio",
         "icon": "$(plus)"
       },
       {
-        "command": "pistachio.showUI",
-        "title": "Pistachio: Show Project UI",
+        "command": "pistachio-vibe.showUI",
+        "title": "Pistachio Vibe: Show Project UI",
         "category": "Pistachio",
         "icon": "$(layout)"
       },
       {
-        "command": "pistachio.showTemplates",
-        "title": "Pistachio: Show Templates",
+        "command": "pistachio-vibe.showTemplates",
+        "title": "Pistachio Vibe: Show Templates",
         "category": "Pistachio",
         "icon": "$(library)"
       },
       {
-        "command": "pistachio.showProjectControl",
-        "title": "Pistachio: Show Project Control",
+        "command": "pistachio-vibe.showProjectControl",
+        "title": "Pistachio Vibe: Show Project Control",
         "category": "Pistachio",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "pistachio.reloadUI",
+        "command": "pistachio-vibe.reloadUI",
         "title": "Pistachio: Reload UI (Dev)",
         "category": "Pistachio",
         "icon": "$(refresh)"
@@ -109,7 +109,7 @@
     "menus": {
       "view/title": [
         {
-          "command": "pistachio.showUI",
+          "command": "pistachio-vibe.showUI",
           "when": "view == preview.templates",
           "group": "navigation"
         }

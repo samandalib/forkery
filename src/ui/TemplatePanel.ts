@@ -301,7 +301,7 @@ export class TemplatePanel {
               'Start Preview', 'Not Now'
             ).then((action: string | undefined) => {
               if (action === 'Start Preview') {
-                vscode.commands.executeCommand('pistachio.run');
+                vscode.commands.executeCommand('pistachio-vibe.run');
               }
             });
             resolve();
@@ -736,12 +736,12 @@ export default function Home() {
               'Starting preview immediately. If you see a blank page, wait a few seconds for Next.js to compile.',
               'OK'
             );
-            vscode.commands.executeCommand('pistachio.run');
+            vscode.commands.executeCommand('pistachio-vibe.run');
           } else {
             // Wait 5 seconds then start
             setTimeout(() => {
               vscode.window.showInformationMessage('Starting preview now... Next.js should be ready!');
-              vscode.commands.executeCommand('pistachio.run');
+              vscode.commands.executeCommand('pistachio-vibe.run');
             }, 5000);
           }
         });
@@ -752,7 +752,7 @@ export default function Home() {
           'Start Preview', 'Not Now'
         ).then((action: string | undefined) => {
           if (action === 'Start Preview') {
-            vscode.commands.executeCommand('pistachio.run');
+            vscode.commands.executeCommand('pistachio-vibe.run');
           }
         });
       }
@@ -839,7 +839,7 @@ export default function Home() {
         'Start Preview', 'Not Now'
       ).then((action: string | undefined) => {
         if (action === 'Start Preview') {
-          vscode.commands.executeCommand('pistachio.run');
+          vscode.commands.executeCommand('pistachio-vibe.run');
         }
       });
 
@@ -1015,7 +1015,7 @@ export default defineConfig({
         'Start Preview', 'Not Now'
       ).then((action: string | undefined) => {
         if (action === 'Start Preview') {
-          vscode.commands.executeCommand('pistachio.run');
+          vscode.commands.executeCommand('pistachio-vibe.run');
         }
       });
 

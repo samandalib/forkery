@@ -161,7 +161,7 @@ export class UIManager {
    */
   public showProjectControl(): void {
     // Create and show the project control panel
-    const extensionUri = vscode.extensions.getExtension('H10B.pistachio')?.extensionUri;
+    const extensionUri = vscode.extensions.getExtension('H10B.pistachio-vibe')?.extensionUri;
     if (extensionUri) {
       ProjectControlPanel.createOrShow(extensionUri);
     } else {

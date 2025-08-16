@@ -1,10 +1,10 @@
-# 🎨 Pistachio: Visual App Creation for Everyone
+# 🎨 Pistachio Vibe: Visual App Creation for Everyone
 
 > **Create web applications instantly with zero terminal knowledge - works in VS Code, Cursor, and all compatible editors**
 
-## 🎯 What is Pistachio?
+## 🎯 What is Pistachio Vibe?
 
-Pistachio transforms how you create and preview web applications by removing the technical barriers that prevent designers and visual coders from building amazing things. No more terminal commands, no more complex setup - just pure creativity.
+Pistachio Vibe transforms how you create and preview web applications by removing the technical barriers that prevent designers and visual coders from building amazing things. No more terminal commands, no more complex setup - just pure creativity.
 
 **Perfect for:**
 - 🎨 **Designers** who want to build without coding
@@ -89,7 +89,7 @@ Pistachio transforms how you create and preview web applications by removing the
 ## 🔧 How It Works
 
 ### **Smart Project Detection**
-Pistachio automatically scans your workspace and:
+Pistachio Vibe automatically scans your workspace and:
 - Identifies existing projects and frameworks
 - Detects the correct start commands
 - Configures ports automatically
@@ -107,13 +107,7 @@ Pistachio automatically scans your workspace and:
 
 ## 📚 Documentation & Resources
 
-**Complete documentation available in the [`/Docs`](https://github.com/samandalib/forkery/tree/main/Docs) folder:**
-
-- **[📖 User Guide](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/README.md)** - Complete feature overview and usage
-- **[🎬 Demo](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/DEMO.md)** - Step-by-step workflow demonstration  
-- **[👨‍💻 Development](https://github.com/samandalib/forkery/blob/main/Docs/02-Development/DEVELOPMENT.md)** - Setup and contribution guide
-- **[🧪 Testing](https://github.com/samandalib/forkery/blob/main/Docs/02-Development/TESTING.md)** - Testing procedures and scenarios
-- **[📋 Index](https://github.com/samandalib/forkery/blob/main/Docs/INDEX.md)** - Complete documentation navigation
+**Complete documentation available in the project's `/Docs` folder for developers and contributors.**
 
 ## 🚀 Installation
 
@@ -126,13 +120,13 @@ Pistachio automatically scans your workspace and:
 6. Restart your editor if prompted
 
 ### **Option 2: Marketplace (Coming Soon)**
-- Search for "Pistachio" in the VS Code Extensions marketplace
+- Search for "Pistachio Vibe" in the VS Code Extensions marketplace
 - Click Install
 - Start using immediately
 
 ## 🤝 Contributing
 
-**Pistachio is open source and welcomes contributions!**
+**Pistachio Vibe is open source and welcomes contributions!**
 
 Whether you're a designer, developer, or just passionate about making coding more accessible, we'd love your help:
 
@@ -141,11 +135,11 @@ Whether you're a designer, developer, or just passionate about making coding mor
 - 📚 **Improve documentation** and user guides
 - 🔧 **Contribute code** and technical improvements
 
-Check out the [Development Guide](https://github.com/samandalib/forkery/blob/main/Docs/DEVELOPMENT.md) for setup instructions and contribution guidelines.
+Check out the project's documentation for setup instructions and contribution guidelines.
 
 ## 📄 License
 
-This project is open source and available under the [MIT License](https://github.com/samandalib/forkery/blob/main/LICENSE).
+This project is open source and available under the MIT License.
 
 ## 🙏 Acknowledgments
 
@@ -155,12 +149,9 @@ Built for the creative community to make web development accessible to everyone,
 
 ## 🎉 Ready to Transform Your Workflow?
 
-**Pistachio makes web development as simple as clicking a button.**
+**Pistachio Vibe makes web development as simple as clicking a button.**
 
-📖 **[Read the full documentation](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/README.md)**  
-🎬 **[See it in action](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/DEMO.md)**  
-👨‍💻 **[Contribute to development](https://github.com/samandalib/forkery/blob/main/Docs/02-Development/DEVELOPMENT.md)**  
-⭐ **Star this repository if Pistachio helps you create amazing things!**
+⭐ **Star this repository if Pistachio Vibe helps you create amazing things!**
 
 ---
 

@@ -46,7 +46,7 @@ export class ProjectControlPanel {
     public static getInstance(): ProjectControlPanel {
         if (!ProjectControlPanel.currentView) {
             // Create a new instance for the view
-            const extensionUri = vscode.extensions.getExtension('H10B.pistachio')?.extensionUri;
+            const extensionUri = vscode.extensions.getExtension('H10B.pistachio-vibe')?.extensionUri;
             if (extensionUri) {
                 ProjectControlPanel.currentView = new ProjectControlPanel(extensionUri);
             } else {
@@ -132,7 +132,7 @@ export class ProjectControlPanel {
         
         // Ensure we have a valid extension URI
         if (!this._extensionUri) {
-            const fallbackUri = vscode.extensions.getExtension('H10B.pistachio')?.extensionUri;
+            const fallbackUri = vscode.extensions.getExtension('H10B.pistachio-vibe')?.extensionUri;
             if (fallbackUri) {
                 this._extensionUri = fallbackUri;
             } else {
@@ -628,7 +628,7 @@ export class ProjectControlPanel {
             this.updateProjectStatus('starting');
             
             // Execute the preview command to start the development server
-            await vscode.commands.executeCommand('pistachio.run');
+            await vscode.commands.executeCommand('pistachio-vibe.run');
             
             // Note: The status will be updated to 'running' by the extension
             // when the server is actually ready
@@ -649,7 +649,7 @@ export class ProjectControlPanel {
             this.updateProjectStatus('stopping');
             
             // Execute the stop command
-            await vscode.commands.executeCommand('pistachio.stop');
+            await vscode.commands.executeCommand('pistachio-vibe.stop');
             
             // Update the status to show server is stopped
             this.updateProjectStatus('stopped');

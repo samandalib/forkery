@@ -99,7 +99,7 @@ class PreviewManager {
       vscode.StatusBarAlignment.Left,
       100
     );
-            this.statusBarItem.command = 'pistachio.showUI';
+            this.statusBarItem.command = 'pistachio-vibe.showUI';
     this.statusBarItem.tooltip = 'Click to show project UI or create new project';
     
     // Create output channel
@@ -170,34 +170,34 @@ class PreviewManager {
   private registerCommands(): void {
     // These commands are already declared in package.json, so they should work
     // But we need to ensure they're properly bound to the instance methods
-    vscode.commands.registerCommand('pistachio.run', () => {
+    vscode.commands.registerCommand('pistachio-vibe.run', () => {
       this.outputChannel.appendLine('🎯 Preview: Run command executed');
       this.startPreview();
     });
-    vscode.commands.registerCommand('pistachio.stop', () => {
+    vscode.commands.registerCommand('pistachio-vibe.stop', () => {
       this.outputChannel.appendLine('🛑 Preview: Stop command executed');
       this.stopPreview();
     });
-    vscode.commands.registerCommand('pistachio.restart', () => {
+    vscode.commands.registerCommand('pistachio-vibe.restart', () => {
       this.outputChannel.appendLine('🔄 Preview: Restart command executed');
       this.restartPreview();
     });
-    vscode.commands.registerCommand('pistachio.createProject', () => {
+    vscode.commands.registerCommand('pistachio-vibe.createProject', () => {
       this.outputChannel.appendLine('🚀 Preview: Create Project command executed');
       this.createNewProject();
     });
 
-    vscode.commands.registerCommand('pistachio.showUI', () => {
+    vscode.commands.registerCommand('pistachio-vibe.showUI', () => {
       this.outputChannel.appendLine('🎨 Preview: Show UI command executed');
       this.uiManager.showAppropriateUI();
     });
 
-    vscode.commands.registerCommand('pistachio.showTemplates', () => {
+    vscode.commands.registerCommand('pistachio-vibe.showTemplates', () => {
       this.outputChannel.appendLine('📋 Preview: Show Templates command executed');
       this.uiManager.showTemplateSelection();
     });
 
-    vscode.commands.registerCommand('pistachio.showProjectControl', () => {
+    vscode.commands.registerCommand('pistachio-vibe.showProjectControl', () => {
       this.outputChannel.appendLine('🎛️ Preview: Show Project Control command executed');
       this.uiManager.showProjectControl();
     });
@@ -2055,7 +2055,7 @@ Created with ❤️ by the One-Click Local Preview Extension
     } else if (this.status.isRunning) {
       this.statusBarItem.text = `● Preview: Running on :${this.status.port}`;
       this.statusBarItem.tooltip = `Preview running on ${this.status.url}\nClick to stop | Cmd+Shift+P → "Preview: Restart" to restart`;
-      this.statusBarItem.command = 'pistachio.stop';
+      this.statusBarItem.command = 'pistachio-vibe.stop';
     } else {
       // Check if project exists
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -2067,7 +2067,7 @@ Created with ❤️ by the One-Click Local Preview Extension
       if (!hasProject) {
         this.statusBarItem.text = '🚀 New Project';
         this.statusBarItem.tooltip = 'Click to create a new project from scratch';
-        this.statusBarItem.command = 'pistachio.createProject';
+        this.statusBarItem.command = 'pistachio-vibe.createProject';
         console.log('PreviewManager: Setting status to 🚀 New Project');
       } else {
         // Check what type of project we have
@@ -2093,7 +2093,7 @@ Created with ❤️ by the One-Click Local Preview Extension
         
         this.statusBarItem.text = `▶ Preview (${projectType})`;
         this.statusBarItem.tooltip = `Click to start ${projectType} preview`;
-        this.statusBarItem.command = 'pistachio.run';
+        this.statusBarItem.command = 'pistachio-vibe.run';
         console.log('PreviewManager: Setting status to ▶ Preview');
       }
     }
