@@ -1,140 +1,128 @@
-# 📚 One-Click Local Preview Extension - Documentation Index
+# 📚 Pistachio Extension - Documentation Index
 
-Welcome to the comprehensive documentation for the One-Click Local Preview Cursor extension. This folder contains all the documentation needed to understand, develop, test, and use the extension.
+Welcome to the comprehensive documentation for **Pistachio: Visual App Creation for Everyone**. This folder contains all the documentation needed to understand, develop, test, and use the extension.
 
-## 📁 Documentation Structure
+## 📁 **Documentation Organization**
 
-### 🚀 **User Documentation**
-- **[README.md](./README.md)** - Main user guide and feature overview
-- **[DEMO.md](./DEMO.md)** - Step-by-step demo of the designer workflow
+### **01-User-Docs/** 👥 **For End Users**
+- **[README.md](./01-User-Docs/README.md)** - Main user guide and feature overview
+- **[DEMO.md](./01-User-Docs/DEMO.md)** - Step-by-step demo of the visual workflow
 
-### 👨‍💻 **Developer Documentation**
-- **[DEVELOPMENT.md](./DEVELOPMENT.md)** - Complete development guide and setup
-- **[TESTING.md](./TESTING.md)** - Testing procedures and scenarios
+### **02-Development/** 👨‍💻 **For Contributors**
+- **[DEVELOPMENT.md](./02-Development/DEVELOPMENT.md)** - Complete development guide and setup
+- **[TESTING.md](./02-Development/TESTING.md)** - Testing procedures and scenarios
+- **[GIT_WORKFLOW.md](./02-Development/GIT_WORKFLOW.md)** - Git workflow and development process
+- **[test-extension.sh](./02-Development/test-extension.sh)** - Quick testing and compilation script
 
-### 🛠️ **Tools & Scripts**
-- **[test-extension.sh](./test-extension.sh)** - Quick testing and compilation script
-- **[GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** - Git workflow and development process
+### **03-Technical/** 🔧 **Technical Details**
+- **[UI_ARCHITECTURE_LEARNINGS.md](./03-Technical/UI_ARCHITECTURE_LEARNINGS.md)** - UI architecture insights and lessons learned
+- **[UI_TROUBLESHOOTING.md](./03-Technical/UI_TROUBLESHOOTING.md)** - Complete UI debugging guide
+- **[UI_STYLING_DECISIONS.md](./03-Technical/UI_STYLING_DECISIONS.md)** - UI design decisions and rationale
+- **[PORT_HANDLING.md](./03-Technical/PORT_HANDLING.md)** - Port management and conflict resolution
+- **[EXTENSION_ID_RESOLUTION_FIX.md](./03-Technical/EXTENSION_ID_RESOLUTION_FIX.md)** - Extension activation fixes
+- **[SIMPLE_HTML_PORT_FIX.md](./03-Technical/SIMPLE_HTML_PORT_FIX.md)** - HTML project port handling
+- **[COOPERATIVE_PORT_MANAGEMENT_PLAN.md](./03-Technical/COOPERATIVE_PORT_MANAGEMENT_PLAN.md)** - Future port management improvements
+- **[CURRENT_ARCHITECTURE_LIMITATIONS.md](./03-Technical/CURRENT_ARCHITECTURE_LIMITATIONS.md)** - Current system limitations and trade-offs
 
----
+### **04-Publishing/** 🚀 **Release & Distribution**
+- **[PUBLISHING_CHECKLIST.md](./04-Publishing/PUBLISHING_CHECKLIST.md)** - Complete publishing workflow
+- **[BANNER_IMPLEMENTATION.md](./04-Publishing/BANNER_IMPLEMENTATION.md)** - UI banner integration details
+- **[MILESTONE_0.2.0.md](./04-Publishing/MILESTONE_0.2.0.md)** - Pistachio transformation milestone
+- **[ASSETS_CREATION_GUIDE.md](./04-Publishing/ASSETS_CREATION_GUIDE.md)** - Visual asset specifications
+- **[EXTENSION_PACKAGING_GUIDE.md](./04-Publishing/EXTENSION_PACKAGING_GUIDE.md)** - Package.json configuration guide
 
-## 🎯 **Quick Start Guide**
-
-### **For Users (Designers)**
-1. **Read [README.md](./README.md)** - Understand what the extension does
-2. **Follow [DEMO.md](./DEMO.md)** - Step-by-step workflow demonstration
-3. **Install the extension** - Use the `.vsix` file in Cursor
-
-### **For Developers**
-1. **Read [DEVELOPMENT.md](./DEVELOPMENT.md)** - Complete development setup
-2. **Follow [GIT_WORKFLOW.md](./GIT_WORKFLOW.md)** - Git workflow and branching strategy
-3. **Use [test-extension.sh](./test-extension.sh)** - Quick testing workflow
-4. **Follow [TESTING.md](./TESTING.md)** - Comprehensive testing procedures
-
----
-
-## 🔍 **Documentation by Topic**
-
-### **Getting Started**
-- **What is it?** → [README.md](./README.md#what-is-it)
-- **Installation** → [README.md](./README.md#installation)
-- **Quick Start** → [DEMO.md](./DEMO.md)
-
-### **Development**
-- **Setup** → [DEVELOPMENT.md](./DEVELOPMENT.md#prerequisites)
-- **Git Workflow** → [GIT_WORKFLOW.md](./GIT_WORKFLOW.md#development-workflow)
-- **Architecture** → [DEVELOPMENT.md](./DEVELOPMENT.md#project-structure)
-- **Key Components** → [DEVELOPMENT.md](./DEVELOPMENT.md#key-components)
-
-### **Testing**
-- **Test Scenarios** → [TESTING.md](./TESTING.md#test-scenarios)
-- **Debugging** → [TESTING.md](./TESTING.md#debugging)
-- **Troubleshooting** → [TESTING.md](./TESTING.md#troubleshooting)
-- **UI Issues** → [UI_TROUBLESHOOTING.md](./UI_TROUBLESHOOTING.md) - Complete UI debugging guide
+### **05-Archive/** 📦 **Historical Documents**
+- **[MILESTONE_0.1.6.md](./05-Archive/MILESTONE_0.1.6.md)** - Previous development milestone (obsolete)
 
 ---
 
-## 📋 **Current Status**
+## 🎯 **Quick Navigation Guide**
 
-### **✅ Working Features**
-- Extension activation and UI
-- Project creation (HTML/CSS/JS, React)
-- Project detection and framework identification
-- Status bar integration
-- Basic port detection (framework-specific)
+### **🚀 For Users (Designers, Visual Coders, Developers)**
+1. **Start Here**: [README.md](./01-User-Docs/README.md) - Understand what Pistachio does
+2. **See It Work**: [DEMO.md](./01-User-Docs/DEMO.md) - Step-by-step workflow demonstration
+3. **Install & Use**: Follow installation instructions in README
 
-### **🔧 Version 0.1.1 Improvements**
-- Fixed Vite config generation to use port 5173
-- Added Vite config validation and port synchronization
-- Enhanced port detection logging and debugging
-- **RESOLVED: Port conflict handling with automatic port resolution**
-- **RESOLVED: Vite config port mismatch issues**
-- Improved preview opening with fallback
-- Better stop/restart controls and notifications
-- Added process cleanup to prevent port conflicts
+### **👨‍�� For Contributors & Developers**
+1. **Setup**: [DEVELOPMENT.md](./02-Development/DEVELOPMENT.md) - Complete development setup
+2. **Workflow**: [GIT_WORKFLOW.md](./02-Development/GIT_WORKFLOW.md) - Git workflow and branching
+3. **Testing**: [TESTING.md](./02-Development/TESTING.md) - Testing procedures
+4. **Quick Test**: [test-extension.sh](./02-Development/test-extension.sh) - Fast testing workflow
 
-### **🚀 Version 0.1.2 New Features (COMPLETED ✅)**
-- ✅ **Fullstack project templates** with Node.js backends
-- ✅ **Express.js + React** fullstack template
-- ✅ **Node.js + Next.js** fullstack template
-- ✅ **Concurrent backend + frontend** development servers
-- ✅ **Automatic fullstack project structure** generation
-- ✅ **Backend API endpoints** (health check, sample data)
-- ✅ **Frontend integration** with backend APIs
-- ✅ **Fullstack process management** and cleanup
-- ✅ **Next.js naming restriction handling** with alternative template fallback
+### **🔧 For Technical Deep Dives**
+1. **UI Issues**: [UI_TROUBLESHOOTING.md](./03-Technical/UI_TROUBLESHOOTING.md) - Debug UI problems
+2. **Port Problems**: [PORT_HANDLING.md](./03-Technical/PORT_HANDLING.md) - Understand port management
+3. **Architecture**: [UI_ARCHITECTURE_LEARNINGS.md](./03-Technical/UI_ARCHITECTURE_LEARNINGS.md) - Learn from development
 
-### **❌ Known Issues**
-- Preview button not consistently opening Simple Browser
-- Some framework templates need testing
-
-### **🚧 In Progress**
-- Preview functionality improvements
-- Browser opening reliability improvements
-- Additional framework support (Gatsby, Astro, Remix)
+### **📦 For Publishing & Releases**
+1. **Publishing**: [PUBLISHING_CHECKLIST.md](./04-Publishing/PUBLISHING_CHECKLIST.md) - Complete release workflow
+2. **Assets**: [ASSETS_CREATION_GUIDE.md](./04-Publishing/ASSETS_CREATION_GUIDE.md) - Create visual assets
+3. **Packaging**: [EXTENSION_PACKAGING_GUIDE.md](./04-Publishing/EXTENSION_PACKAGING_GUIDE.md) - Configure package.json
 
 ---
 
-## 🔄 **Documentation Updates**
+## 🎨 **What is Pistachio?**
 
-### **Last Updated**
-- **README.md**: Extension features and user guide
-- **DEVELOPMENT.md**: Complete development workflow
-- **TESTING.md**: Comprehensive testing procedures
-- **DEMO.md**: User workflow demonstration
+**Pistachio** is a VS Code extension that transforms how you create and preview web applications by removing technical barriers. It enables:
 
-### **Version History**
-- **v0.1.0**: Initial extension with basic functionality
-- **v0.1.1**: Port handling improvements and preview fixes
-- **v0.1.2**: Fullstack project templates with Node.js backends (COMPLETED ✅)
-- **Current**: Ready for v0.2.0 planning and additional framework support
+- **🎨 Designers** to build prototypes without terminal knowledge
+- **🚀 Visual Coders** to create apps through intuitive interfaces
+- **👨‍💻 Developers** to accelerate their development workflow
+- **🌟 Teams** to collaborate with standardized, accessible tools
+
+## ✨ **Key Features**
+
+- **🚀 One-Click Preview** - Start development servers instantly
+- **🆕 Project Creation** - Pre-built templates for React, Next.js, Express, and more
+- **🔍 Smart Detection** - Automatically recognizes frameworks and configurations
+- **🎛️ Effortless Control** - Start, stop, and restart from the status bar
+- **🌐 Universal Compatibility** - Works in VS Code, Cursor, and all compatible editors
+
+## 🔄 **Current Status**
+
+**🎉 MILESTONE 0.2.0 COMPLETED!**
+
+✅ **Pistachio Transformation Complete:**
+- Complete rebranding from "cursor-preview" to "Pistachio"
+- Professional UI with integrated banners
+- Smart context-aware interface switching
+- Enhanced project detection and management
+- Production-ready packaging and distribution
+
+**🚀 Ready for:**
+- VS Code Marketplace submission
+- Website integration for clickable banners
+- User adoption and feedback collection
+- Future feature development
 
 ---
 
 ## 📞 **Getting Help**
 
 ### **For Users**
-- Check [README.md](./README.md) for common questions
-- Follow [DEMO.md](./DEMO.md) for step-by-step guidance
+- Check [README.md](./01-User-Docs/README.md) for common questions
+- Follow [DEMO.md](./01-User-Docs/DEMO.md) for step-by-step guidance
 - Report issues with detailed error messages
 
-### **For Developers**
-- Read [DEVELOPMENT.md](./DEVELOPMENT.md) for technical details
-- Use [TESTING.md](./TESTING.md) for debugging procedures
-- Check the main project README for build instructions
+### **For Contributors**
+- Read [DEVELOPMENT.md](./02-Development/DEVELOPMENT.md) for technical details
+- Use [TESTING.md](./02-Development/TESTING.md) for debugging procedures
+- Check [GIT_WORKFLOW.md](./02-Development/GIT_WORKFLOW.md) for contribution guidelines
 
 ---
 
-## 🎉 **Success Stories**
+## 🎯 **Documentation Goals**
 
-The extension successfully:
-- ✅ Creates React projects from scratch
-- ✅ Detects existing projects automatically
-- ✅ Provides one-click project creation
-- ✅ Integrates seamlessly with Cursor UI
-
-**Goal**: Enable designers to go from empty workspace to running React app in one click!
+This documentation structure aims to:
+- **Separate concerns** between user, developer, and technical content
+- **Provide clear navigation** for different audience types
+- **Maintain historical context** while keeping current docs accessible
+- **Support the publishing workflow** for marketplace submission
+- **Enable future development** with comprehensive technical details
 
 ---
 
 *This documentation is maintained alongside the extension code. For the latest updates, check the main project repository.*
+
+**Last Updated**: December 2024 - Pistachio transformation complete  
+**Status**: 🎉 READY FOR MARKETPLACE SUBMISSION

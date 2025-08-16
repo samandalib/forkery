@@ -1,124 +1,167 @@
-# 🚀 One-Click Local Preview for Cursor
+# 🎨 Pistachio: Visual App Creation for Everyone
 
-> **A Cursor extension that provides one-click local preview for frontend projects without requiring terminal knowledge.**
+> **Create web applications instantly with zero terminal knowledge - works in VS Code, Cursor, and all compatible editors**
 
-## 🎯 What is it?
+## 🎯 What is Pistachio?
 
-This extension removes friction from running local development servers by:
-- **Detecting** the correct start command for your project
-- **Running** it invisibly in the background  
-- **Opening** the preview automatically in-editor or browser
-- **Providing** Start/Stop/Restart controls in the Cursor UI
+Pistachio transforms how you create and preview web applications by removing the technical barriers that prevent designers and visual coders from building amazing things. No more terminal commands, no more complex setup - just pure creativity.
 
-Perfect for designers who want to focus on their work, not terminal commands!
+**Perfect for:**
+- 🎨 **Designers** who want to build without coding
+- 🚀 **Visual coders** who prefer UI over terminal
+- 👨‍💻 **Developers** who want faster workflows
+- 🌟 **Anyone** who wants to see their ideas come to life instantly
 
-## ✨ Features
+## ✨ What Makes Pistachio Special?
 
-- 🚀 **One-Click Preview** - Start your dev server with a single click
-- 🆕 **Project Creation** - Create new projects from scratch using templates
-- 🔍 **Smart Detection** - Automatically detects React, Next.js, Vite, and more
-- 🎛️ **Easy Controls** - Start, stop, and restart from the status bar
-- 🌐 **Flexible Preview** - Opens in Cursor's Simple Browser or external browser
-- 📱 **Status Indicators** - Always know what's running and where
-- ⏳ **Progress Indicators** - Real-time visual feedback during project creation
+### 🚀 **One-Click Everything**
+- **Instant Preview** - Start your development server with a single click
+- **Smart Detection** - Automatically recognizes React, Next.js, Vite, and more
+- **Zero Configuration** - Works out of the box with your existing projects
+
+### 🆕 **Project Creation Made Simple**
+- **Pre-built Templates** - Choose from React, Next.js, Express, and more
+- **Visual Workflow** - Create projects through an intuitive interface
+- **Instant Setup** - No waiting, no errors, just ready-to-use projects
+
+### 🎛️ **Effortless Control**
+- **Status Bar Controls** - Start, stop, and restart from anywhere
+- **Real-time Feedback** - Always know what's running and where
+- **Smart Port Management** - No more port conflicts or manual configuration
+
+## 🌐 Universal Compatibility
+
+**Pistachio works everywhere VS Code does:**
+
+✅ **VS Code** (all versions 1.74.0+)  
+✅ **Cursor** (VS Code-based editor)  
+✅ **VSCodium** (open-source VS Code)  
+✅ **GitHub Codespaces** (cloud development)  
+✅ **Any VS Code-compatible editor**
 
 ## 🚀 Quick Start
 
-1. **Install the extension** - Download the `.vsix` file and install in Cursor
-2. **Open a project** - Works with existing projects or empty workspaces
-3. **Click Preview** - Use the status bar button to start your dev server
-4. **Create New** - Click "🚀 New Project" to start from scratch
+### **1. Install Pistachio**
+- Download the `.vsix` file
+- Install in your editor: `Cmd+Shift+P` → "Extensions: Install from VSIX"
+- Restart if prompted
 
-## 📚 Documentation
+### **2. Start Creating**
+- **Existing Project**: Click the status bar button to start preview
+- **New Project**: Click "🚀 New Project" to create from templates
+- **Zero Setup**: Pistachio handles everything automatically
 
-**All detailed documentation is available in the [`/Docs`](https://github.com/your-repo/forkery/tree/main/Docs) folder:**
-
-- **[📖 User Guide](https://github.com/your-repo/forkery/blob/main/Docs/README.md)** - Complete feature overview and usage
-- **[🎬 Demo](https://github.com/your-repo/forkery/blob/main/Docs/DEMO.md)** - Step-by-step workflow demonstration  
-- **[👨‍💻 Development](https://github.com/your-repo/forkery/blob/main/Docs/DEVELOPMENT.md)** - Setup and contribution guide
-- **[🧪 Testing](https://github.com/your-repo/forkery/blob/main/Docs/TESTING.md)** - Testing procedures and scenarios
-- **[📋 Index](https://github.com/your-repo/forkery/blob/main/Docs/INDEX.md)** - Complete documentation navigation
+### **3. See Results Instantly**
+- Preview opens automatically in your editor or browser
+- Changes update in real-time
+- No terminal knowledge required
 
 ## 🎨 Supported Frameworks
 
-| Framework | Status | Project Creation | Preview |
-|-----------|--------|------------------|---------|
-| **React (Vite)** | ✅ **PERFECT** | ✅ **100% Success** | ✅ **Stable** |
-| **Next.js** | ✅ **PERFECT** | ✅ **100% Success** | ✅ **Stable** |
-| **Express+React** | ✅ **PERFECT** | ✅ **100% Success** | ✅ **Stable** |
-| **Node+Next** | ✅ **PERFECT** | ✅ **100% Success** | ✅ **Stable** |
-| **HTML/CSS/JS** | ✅ **PERFECT** | ✅ **100% Success** | ✅ **Stable** |
-| **Astro** | 📋 Planned | ❌ No | ❌ No |
-| **Remix** | 📋 Planned | ❌ No | ❌ No |
-| **Gatsby** | 📋 Planned | ❌ No | ❌ No |
+| Framework | Project Creation | Preview | Status |
+|-----------|------------------|---------|---------|
+| **React (Vite)** | ✅ Perfect | ✅ Stable | **Ready** |
+| **Next.js** | ✅ Perfect | ✅ Stable | **Ready** |
+| **Express + React** | ✅ Perfect | ✅ Stable | **Ready** |
+| **Node + Next.js** | ✅ Perfect | ✅ Stable | **Ready** |
+| **HTML/CSS/JS** | ✅ Perfect | ✅ Stable | **Ready** |
 
-## 🎉 **MILESTONE 0.1.6 ACHIEVED!** 
+## 🎯 Perfect For These Use Cases
 
-**Extension is now 95% complete with STABLE project creation and port handling!**
+### **🎨 Designers & Visual Creators**
+- **Build prototypes** without learning terminal commands
+- **Create web apps** using visual templates
+- **Focus on design** instead of technical setup
+- **Share your work** instantly with clients and teams
 
-✅ **What Works PERFECTLY:**
-- **100% Project Creation Success** across all 5 template types
-- **Zero Port Conflicts** with automatic detection and resolution
-- **All Frameworks Working**: React, Next.js, Express, HTML/CSS/JS
-- **Fullstack Projects**: Express+React, Node+Next working flawlessly
-- **Smart Port Management**: Dynamic port detection and conflict resolution
-- **Progress Indicators**: Real-time feedback during project creation
-- **Immediate Preview Readiness**: Content displays correctly every time
+### **🚀 Developers & Engineers**
+- **Rapid prototyping** with pre-configured templates
+- **Consistent setup** across all projects
+- **Faster development** cycles
+- **Easy project sharing** with non-technical team members
 
-🚀 **Major Breakthroughs:**
-- **Port Management Architecture**: Eliminated persistent port conflicts
-- **Template-Specific Creation**: Dedicated methods for each project type
-- **Next.js Readiness**: Smart compilation delays and readiness checks
-- **Error Resolution**: Multi-level cleanup strategies with graceful fallbacks
+### **🌟 Teams & Collaborators**
+- **Standardized workflows** for everyone
+- **Reduced onboarding** time for new team members
+- **Designer-developer collaboration** without barriers
+- **Consistent development** environment across the team
 
-## 🔧 Current Status
+## 🔧 How It Works
 
-**Extension is now PRODUCTION-READY for project creation!**
+### **Smart Project Detection**
+Pistachio automatically scans your workspace and:
+- Identifies existing projects and frameworks
+- Detects the correct start commands
+- Configures ports automatically
+- Sets up preview environments
+
+### **Intelligent UI Switching**
+- **Template Panel**: Shows when starting new projects
+- **Project Control**: Appears when managing existing projects
+- **Context-Aware**: Adapts to your current workspace state
+
+### **Seamless Integration**
+- **Status Bar**: Quick access to all controls
+- **Command Palette**: Full command access via `Cmd+Shift+P`
+- **Activity Bar**: Dedicated Pistachio section with rocket icon
+
+## 📚 Documentation & Resources
+
+**Complete documentation available in the [`/Docs`](https://github.com/samandalib/forkery/tree/main/Docs) folder:**
+
+- **[📖 User Guide](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/README.md)** - Complete feature overview and usage
+- **[🎬 Demo](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/DEMO.md)** - Step-by-step workflow demonstration  
+- **[👨‍💻 Development](https://github.com/samandalib/forkery/blob/main/Docs/02-Development/DEVELOPMENT.md)** - Setup and contribution guide
+- **[🧪 Testing](https://github.com/samandalib/forkery/blob/main/Docs/02-Development/TESTING.md)** - Testing procedures and scenarios
+- **[📋 Index](https://github.com/samandalib/forkery/blob/main/Docs/INDEX.md)** - Complete documentation navigation
 
 ## 🚀 Installation
 
-1. **Download** the latest `.vsix` file from releases
-2. **Install** in Cursor: `Cmd+Shift+P` → "Extensions: Install from VSIX"
-3. **Restart** Cursor if prompted
-4. **Look for** the status bar button (🚀 New Project or ▶ Preview)
+### **Option 1: VSIX Package (Recommended)**
+1. Download the latest `.vsix` file from releases
+2. Open your editor (VS Code, Cursor, etc.)
+3. Press `Cmd+Shift+P` (or `Ctrl+Shift+P` on Windows/Linux)
+4. Type "Extensions: Install from VSIX" and select it
+5. Choose the downloaded `.vsix` file
+6. Restart your editor if prompted
 
-## 🎯 Use Cases
-
-### **For Designers**
-- Start working immediately without terminal knowledge
-- Create new projects with pre-configured templates
-- Preview changes in real-time
-
-### **For Developers**
-- Quick project setup and testing
-- Consistent development environment
-- Easy project sharing with designers
-
-### **For Teams**
-- Standardized project creation
-- Reduced onboarding friction
-- Consistent development workflow
+### **Option 2: Marketplace (Coming Soon)**
+- Search for "Pistachio" in the VS Code Extensions marketplace
+- Click Install
+- Start using immediately
 
 ## 🤝 Contributing
 
-Want to help make this extension better? Check out the [Development Guide](https://github.com/your-repo/forkery/blob/main/Docs/DEVELOPMENT.md) for:
-- Setup instructions
-- Architecture overview
-- Testing procedures
-- Contribution guidelines
+**Pistachio is open source and welcomes contributions!**
+
+Whether you're a designer, developer, or just passionate about making coding more accessible, we'd love your help:
+
+- 🐛 **Report bugs** and suggest improvements
+- 💡 **Propose new features** and templates
+- 📚 **Improve documentation** and user guides
+- 🔧 **Contribute code** and technical improvements
+
+Check out the [Development Guide](https://github.com/samandalib/forkery/blob/main/Docs/DEVELOPMENT.md) for setup instructions and contribution guidelines.
 
 ## 📄 License
 
-This project is open source and available under the [MIT License](https://github.com/your-repo/forkery/blob/main/LICENSE).
+This project is open source and available under the [MIT License](https://github.com/samandalib/forkery/blob/main/LICENSE).
 
 ## 🙏 Acknowledgments
 
-Built for the Cursor community to make frontend development more accessible to designers and developers alike.
+Built for the creative community to make web development accessible to everyone, regardless of technical background.
 
 ---
 
-**Ready to simplify your local development workflow?** 
+## 🎉 Ready to Transform Your Workflow?
 
-📖 **[Read the full documentation](https://github.com/your-repo/forkery/blob/main/Docs/README.md)**  
-🎬 **[See it in action](https://github.com/your-repo/forkery/blob/main/Docs/DEMO.md)**  
-👨‍💻 **[Contribute to development](https://github.com/your-repo/forkery/blob/main/Docs/DEVELOPMENT.md)**
+**Pistachio makes web development as simple as clicking a button.**
+
+📖 **[Read the full documentation](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/README.md)**  
+🎬 **[See it in action](https://github.com/samandalib/forkery/blob/main/Docs/01-User-Docs/DEMO.md)**  
+👨‍💻 **[Contribute to development](https://github.com/samandalib/forkery/blob/main/Docs/02-Development/DEVELOPMENT.md)**  
+⭐ **Star this repository if Pistachio helps you create amazing things!**
+
+---
+
+*Built with ❤️ for designers, developers, and creators everywhere*
