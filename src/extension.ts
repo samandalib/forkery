@@ -39,6 +39,7 @@ class PreviewManager {
   private status: PreviewStatus;
   private config: ProjectConfig | null = null;
   private contextKey: vscode.ExtensionContext;
+  private extensionUri: vscode.Uri;
   private uiManager: UIManager;
   private isCreatingProject: boolean = false;
 
@@ -83,6 +84,7 @@ class PreviewManager {
 
   constructor(context: vscode.ExtensionContext) {
     this.contextKey = context;
+    this.extensionUri = context.extensionUri;
     this.status = {
       isRunning: false,
       isStarting: false,
@@ -97,7 +99,7 @@ class PreviewManager {
       vscode.StatusBarAlignment.Left,
       100
     );
-    this.statusBarItem.command = 'preview.showUI';
+            this.statusBarItem.command = 'pistachio.showUI';
     this.statusBarItem.tooltip = 'Click to show project UI or create new project';
     
     // Create output channel
@@ -143,7 +145,7 @@ class PreviewManager {
     console.log('PreviewManager: Registering view providers...');
     
     // Register the template view provider
-    const templateViewProvider = new TemplateViewProvider(TemplatePanel.getInstance());
+    const templateViewProvider = new TemplateViewProvider(TemplatePanel.getInstance(), this.extensionUri);
     console.log('PreviewManager: TemplateViewProvider created:', templateViewProvider);
     
     vscode.window.registerWebviewViewProvider(
@@ -153,7 +155,7 @@ class PreviewManager {
     console.log('PreviewManager: TemplateViewProvider registered with type:', TemplateViewProvider.viewType);
 
     // Register the project control view provider
-    const projectControlViewProvider = new ProjectControlViewProvider(ProjectControlPanel.getInstance());
+    const projectControlViewProvider = new ProjectControlViewProvider(ProjectControlPanel.getInstance(), this.extensionUri);
     console.log('PreviewManager: ProjectControlViewProvider created:', projectControlViewProvider);
     
     vscode.window.registerWebviewViewProvider(
@@ -168,34 +170,34 @@ class PreviewManager {
   private registerCommands(): void {
     // These commands are already declared in package.json, so they should work
     // But we need to ensure they're properly bound to the instance methods
-    vscode.commands.registerCommand('preview.run', () => {
+    vscode.commands.registerCommand('pistachio.run', () => {
       this.outputChannel.appendLine('🎯 Preview: Run command executed');
       this.startPreview();
     });
-    vscode.commands.registerCommand('preview.stop', () => {
+    vscode.commands.registerCommand('pistachio.stop', () => {
       this.outputChannel.appendLine('🛑 Preview: Stop command executed');
       this.stopPreview();
     });
-    vscode.commands.registerCommand('preview.restart', () => {
+    vscode.commands.registerCommand('pistachio.restart', () => {
       this.outputChannel.appendLine('🔄 Preview: Restart command executed');
       this.restartPreview();
     });
-    vscode.commands.registerCommand('preview.createProject', () => {
+    vscode.commands.registerCommand('pistachio.createProject', () => {
       this.outputChannel.appendLine('🚀 Preview: Create Project command executed');
       this.createNewProject();
     });
 
-    vscode.commands.registerCommand('preview.showUI', () => {
+    vscode.commands.registerCommand('pistachio.showUI', () => {
       this.outputChannel.appendLine('🎨 Preview: Show UI command executed');
       this.uiManager.showAppropriateUI();
     });
 
-    vscode.commands.registerCommand('preview.showTemplates', () => {
+    vscode.commands.registerCommand('pistachio.showTemplates', () => {
       this.outputChannel.appendLine('📋 Preview: Show Templates command executed');
       this.uiManager.showTemplateSelection();
     });
 
-    vscode.commands.registerCommand('preview.showProjectControl', () => {
+    vscode.commands.registerCommand('pistachio.showProjectControl', () => {
       this.outputChannel.appendLine('🎛️ Preview: Show Project Control command executed');
       this.uiManager.showProjectControl();
     });
@@ -2049,11 +2051,11 @@ Created with ❤️ by the One-Click Local Preview Extension
     if (this.status.isStarting) {
       this.statusBarItem.text = '⟳ Starting...';
       this.statusBarItem.tooltip = 'Preview server is starting...\nClick to stop';
-      this.statusBarItem.command = 'preview.stop';
+      this.statusBarItem.command = 'pistachio.stop';
     } else if (this.status.isRunning) {
       this.statusBarItem.text = `● Preview: Running on :${this.status.port}`;
       this.statusBarItem.tooltip = `Preview running on ${this.status.url}\nClick to stop | Cmd+Shift+P → "Preview: Restart" to restart`;
-      this.statusBarItem.command = 'preview.stop';
+      this.statusBarItem.command = 'pistachio.stop';
     } else {
       // Check if project exists
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -2065,7 +2067,7 @@ Created with ❤️ by the One-Click Local Preview Extension
       if (!hasProject) {
         this.statusBarItem.text = '🚀 New Project';
         this.statusBarItem.tooltip = 'Click to create a new project from scratch';
-        this.statusBarItem.command = 'preview.createProject';
+        this.statusBarItem.command = 'pistachio.createProject';
         console.log('PreviewManager: Setting status to 🚀 New Project');
       } else {
         // Check what type of project we have
@@ -2091,7 +2093,7 @@ Created with ❤️ by the One-Click Local Preview Extension
         
         this.statusBarItem.text = `▶ Preview (${projectType})`;
         this.statusBarItem.tooltip = `Click to start ${projectType} preview`;
-        this.statusBarItem.command = 'preview.run';
+        this.statusBarItem.command = 'pistachio.run';
         console.log('PreviewManager: Setting status to ▶ Preview');
       }
     }

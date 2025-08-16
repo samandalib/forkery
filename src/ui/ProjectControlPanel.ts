@@ -46,7 +46,7 @@ export class ProjectControlPanel {
     public static getInstance(): ProjectControlPanel {
         if (!ProjectControlPanel.currentView) {
             // Create a new instance for the view
-            const extensionUri = vscode.extensions.getExtension('undefined_publisher.cursor-preview')?.extensionUri;
+            const extensionUri = vscode.extensions.getExtension('H10B.pistachio')?.extensionUri;
             if (extensionUri) {
                 ProjectControlPanel.currentView = new ProjectControlPanel(extensionUri);
             } else {
@@ -132,7 +132,7 @@ export class ProjectControlPanel {
         
         // Ensure we have a valid extension URI
         if (!this._extensionUri) {
-            const fallbackUri = vscode.extensions.getExtension('undefined_publisher.cursor-preview')?.extensionUri;
+            const fallbackUri = vscode.extensions.getExtension('H10B.pistachio')?.extensionUri;
             if (fallbackUri) {
                 this._extensionUri = fallbackUri;
             } else {
@@ -170,6 +170,21 @@ export class ProjectControlPanel {
                         color: #ffffff;
                         line-height: 1.6;
                         overflow-x: hidden;
+                    }
+                    
+                    .pistachio-banner {
+                        margin: 20px;
+                        text-align: center;
+                        border-radius: 12px;
+                        overflow: hidden;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                    }
+                    
+                    .pistachio-banner img {
+                        width: 100%;
+                        height: auto;
+                        max-width: 100%;
+                        display: block;
                     }
 
                     /* Header */
@@ -417,6 +432,11 @@ export class ProjectControlPanel {
                 </style>
             </head>
             <body>
+                <!-- Pistachio Banner -->
+                <div class="pistachio-banner">
+                    <img src="${webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'assets', 'banners', 'pistachio-banner-1280x200.png'))}" alt="Pistachio: Visual Vibe coding in IDE" />
+                </div>
+                
                 <!-- Header -->
                 <div class="header">
                     <h1>Project Control Panel</h1>
@@ -608,7 +628,7 @@ export class ProjectControlPanel {
             this.updateProjectStatus('starting');
             
             // Execute the preview command to start the development server
-            await vscode.commands.executeCommand('preview.run');
+            await vscode.commands.executeCommand('pistachio.run');
             
             // Note: The status will be updated to 'running' by the extension
             // when the server is actually ready
@@ -629,7 +649,7 @@ export class ProjectControlPanel {
             this.updateProjectStatus('stopping');
             
             // Execute the stop command
-            await vscode.commands.executeCommand('preview.stop');
+            await vscode.commands.executeCommand('pistachio.stop');
             
             // Update the status to show server is stopped
             this.updateProjectStatus('stopped');

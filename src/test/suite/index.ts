@@ -10,9 +10,9 @@ suite('Extension Test Suite', () => {
 
   test('Commands should be registered', async () => {
     const commands = await vscode.commands.getCommands();
-    assert.ok(commands.includes('preview.run'));
-    assert.ok(commands.includes('preview.stop'));
-    assert.ok(commands.includes('preview.restart'));
+    assert.ok(commands.includes('pistachio.run'));
+          assert.ok(commands.includes('pistachio.stop'));
+      assert.ok(commands.includes('pistachio.restart'));
   });
 
   test('Configuration should be available', () => {

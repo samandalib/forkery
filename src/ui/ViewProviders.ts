@@ -5,7 +5,10 @@ import { ProjectControlPanel } from './ProjectControlPanel';
 export class TemplateViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'preview.templates';
 
-  constructor(private readonly templatePanel: TemplatePanel) {}
+  constructor(
+    private readonly templatePanel: TemplatePanel,
+    private readonly extensionUri: vscode.Uri
+  ) {}
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,
@@ -18,7 +21,7 @@ export class TemplateViewProvider implements vscode.WebviewViewProvider {
     console.log('TemplateViewProvider: templatePanel:', this.templatePanel);
     
     try {
-      this.templatePanel.setView(webviewView);
+      this.templatePanel.setView(webviewView, this.extensionUri);
       console.log('TemplateViewProvider: setView completed successfully');
     } catch (error) {
       console.error('TemplateViewProvider: Error in setView:', error);
@@ -31,7 +34,10 @@ export class TemplateViewProvider implements vscode.WebviewViewProvider {
 export class ProjectControlViewProvider implements vscode.WebviewViewProvider {
   public static readonly viewType = 'preview.control';
 
-  constructor(private readonly projectControlPanel: ProjectControlPanel) {}
+  constructor(
+    private readonly projectControlPanel: ProjectControlPanel,
+    private readonly extensionUri: vscode.Uri
+  ) {}
 
   public resolveWebviewView(
     webviewView: vscode.WebviewView,

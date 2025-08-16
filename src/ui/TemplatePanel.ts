@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 export class TemplatePanel {
   private static instance: TemplatePanel;
   private view: vscode.WebviewView | undefined;
+  private extensionUri: vscode.Uri | undefined;
 
   public static getInstance(): TemplatePanel {
     if (!TemplatePanel.instance) {
@@ -18,11 +19,14 @@ export class TemplatePanel {
     // This method is kept for compatibility but the view is managed by VS Code
   }
 
-  public setView(view: vscode.WebviewView): void {
+  public setView(view: vscode.WebviewView, extensionUri?: vscode.Uri): void {
     console.log('TemplatePanel: setView called with view:', view);
     console.log('TemplatePanel: view.webview:', view.webview);
     
     this.view = view;
+    if (extensionUri) {
+      this.extensionUri = extensionUri;
+    }
     
     // Set webview options for security
     this.view.webview.options = {
@@ -297,7 +301,7 @@ export class TemplatePanel {
               'Start Preview', 'Not Now'
             ).then((action: string | undefined) => {
               if (action === 'Start Preview') {
-                vscode.commands.executeCommand('preview.run');
+                vscode.commands.executeCommand('pistachio.run');
               }
             });
             resolve();
@@ -732,12 +736,12 @@ export default function Home() {
               'Starting preview immediately. If you see a blank page, wait a few seconds for Next.js to compile.',
               'OK'
             );
-            vscode.commands.executeCommand('preview.run');
+            vscode.commands.executeCommand('pistachio.run');
           } else {
             // Wait 5 seconds then start
             setTimeout(() => {
               vscode.window.showInformationMessage('Starting preview now... Next.js should be ready!');
-              vscode.commands.executeCommand('preview.run');
+              vscode.commands.executeCommand('pistachio.run');
             }, 5000);
           }
         });
@@ -748,7 +752,7 @@ export default function Home() {
           'Start Preview', 'Not Now'
         ).then((action: string | undefined) => {
           if (action === 'Start Preview') {
-            vscode.commands.executeCommand('preview.run');
+            vscode.commands.executeCommand('pistachio.run');
           }
         });
       }
@@ -835,7 +839,7 @@ export default function Home() {
         'Start Preview', 'Not Now'
       ).then((action: string | undefined) => {
         if (action === 'Start Preview') {
-          vscode.commands.executeCommand('preview.run');
+          vscode.commands.executeCommand('pistachio.run');
         }
       });
 
@@ -1011,7 +1015,7 @@ export default defineConfig({
         'Start Preview', 'Not Now'
       ).then((action: string | undefined) => {
         if (action === 'Start Preview') {
-          vscode.commands.executeCommand('preview.run');
+          vscode.commands.executeCommand('pistachio.run');
         }
       });
 
@@ -1047,6 +1051,21 @@ export default defineConfig({
             padding: 20px;
             background: #1e1e1e;
             color: #ffffff;
+          }
+          
+          .pistachio-banner {
+            margin-bottom: 24px;
+            text-align: center;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          }
+          
+          .pistachio-banner img {
+            width: 100%;
+            height: auto;
+            max-width: 100%;
+            display: block;
           }
           
           .header {
@@ -1389,6 +1408,11 @@ export default defineConfig({
               <div class="progress-fill"></div>
             </div>
           </div>
+        </div>
+        
+        <!-- Pistachio Banner -->
+        <div class="pistachio-banner">
+          <img src="${this.extensionUri && this.view ? this.view.webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'assets', 'banners', 'pistachio-banner-1280x200.png')) : ''}" alt="Pistachio: Visual Vibe coding in IDE" />
         </div>
         
         <div class="header">

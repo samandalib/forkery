@@ -16,6 +16,9 @@ export class UIManager {
     
     // Listen for workspace changes to automatically update UI
     this.setupWorkspaceChangeListener();
+    
+    // Immediately detect workspace state and set context keys
+    this.detectWorkspaceState();
   }
 
   public static getInstance(): UIManager {
@@ -41,22 +44,28 @@ export class UIManager {
    * Detect if workspace has an existing project or is empty
    */
   private detectWorkspaceState(): void {
+    console.log('UIManager: detectWorkspaceState called');
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders || workspaceFolders.length === 0) {
+      console.log('UIManager: No workspace folders found, setting template view');
       // No workspace - show templates
       this.setTemplateView();
       return;
     }
 
     const workspaceRoot = workspaceFolders[0].uri.fsPath;
+    console.log('UIManager: Workspace root:', workspaceRoot);
     
     // Check for common project indicators
     const hasProject = this.checkForExistingProject(workspaceRoot);
+    console.log('UIManager: Has project:', hasProject);
     
     if (hasProject) {
+      console.log('UIManager: Setting project control view');
       // Workspace has a project - show project control
       this.setProjectControlView();
     } else {
+      console.log('UIManager: Setting template view');
       // Empty workspace - show templates
       this.setTemplateView();
     }
@@ -67,9 +76,13 @@ export class UIManager {
    */
   private checkForExistingProject(workspaceRoot: string): boolean {
     try {
+      console.log('UIManager: Checking for existing project in:', workspaceRoot);
+      
       // Check for package.json (Node.js projects)
       const packageJsonPath = require('path').join(workspaceRoot, 'package.json');
+      console.log('UIManager: Checking for package.json at:', packageJsonPath);
       if (require('fs').existsSync(packageJsonPath)) {
+        console.log('UIManager: Found package.json, project exists');
         return true;
       }
 
@@ -100,6 +113,7 @@ export class UIManager {
     console.log('UIManager: Setting template view (empty workspace)');
     vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
     vscode.commands.executeCommand('setContext', 'preview.hasProject', false);
+    console.log('UIManager: Context keys set - preview.isRunning: false, preview.hasProject: false');
   }
 
   /**
@@ -109,6 +123,7 @@ export class UIManager {
     console.log('UIManager: Setting project control view (existing project)');
     vscode.commands.executeCommand('setContext', 'preview.isRunning', true);
     vscode.commands.executeCommand('setContext', 'preview.hasProject', true);
+    console.log('UIManager: Context keys set - preview.isRunning: true, preview.hasProject: true');
   }
 
   /**
@@ -146,7 +161,7 @@ export class UIManager {
    */
   public showProjectControl(): void {
     // Create and show the project control panel
-    const extensionUri = vscode.extensions.getExtension('undefined_publisher.cursor-preview')?.extensionUri;
+    const extensionUri = vscode.extensions.getExtension('H10B.pistachio')?.extensionUri;
     if (extensionUri) {
       ProjectControlPanel.createOrShow(extensionUri);
     } else {
