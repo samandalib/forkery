@@ -504,7 +504,11 @@ export class ProjectControlPanel {
                         </div>
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #3e3e42;">
                             <button id="copy-diagnostic-btn" class="btn" style="background: #4caf50; border-color: #388e3c; margin-right: 8px;">
-                                📋 Copy Report
+                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                </svg>
+                                <span class="btn-text">Copy Report</span>
                             </button>
                             <button id="hide-diagnostic-btn" class="btn" style="background: #757575; border-color: #616161;">
                                 Hide Results
@@ -674,15 +678,12 @@ export class ProjectControlPanel {
                             let html = \`
                                 <div style="margin-bottom: 16px;">
                                     <div style="display: flex; align-items: center; margin-bottom: 12px;">
-                                        <span style="font-size: 24px; font-weight: bold; color: \${diagnostic.score >= 80 ? '#4caf50' : diagnostic.score >= 50 ? '#ff9800' : '#f44336'};">
-                                            \${diagnostic.score}/100
+                                        <span style="font-size: 20px; font-weight: bold; color: \${diagnostic.status === 'READY' ? '#4caf50' : '#ff9800'};">
+                                            \${diagnostic.status === 'READY' ? '✅ Ready for Deployment' : '⚠️ Configuration Required'}
                                         </span>
-                                        <span style="margin-left: 12px; padding: 4px 8px; background: \${diagnostic.status === 'READY' ? '#4caf50' : diagnostic.status === 'NEEDS_CONFIG' ? '#ff9800' : '#f44336'}; color: white; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                                            \${diagnostic.status}
-                                        </span>
-                                        <span style="margin-left: 8px; padding: 4px 8px; background: \${diagnostic.riskLevel === 'LOW' ? '#4caf50' : diagnostic.riskLevel === 'MEDIUM' ? '#ff9800' : '#f44336'}; color: white; border-radius: 4px; font-size: 12px; font-weight: bold;">
-                                            \${diagnostic.riskLevel} RISK
-                                        </span>
+                                    </div>
+                                    <div style="color: #cccccc; font-size: 14px; margin-bottom: 16px;">
+                                        \${diagnostic.status === 'READY' ? 'Your project appears ready to build and deploy successfully.' : 'Your project needs some configuration before it can be deployed reliably.'}
                                     </div>
                                 </div>
                             \`;
