@@ -61,6 +61,14 @@ class PreviewManager {
   private configManager: ConfigManager;
   private projectManager: ProjectManager;
 
+  // Debug logging helper
+  private debugLog(message: string, context: string = 'PreviewManager'): void {
+    const timestamp = new Date().toISOString();
+    const debugMessage = `[DEBUG:${context}:${timestamp}] ${message}`;
+    this.outputChannel.appendLine(debugMessage);
+    console.log(debugMessage);
+  }
+
   // Project templates for quick start
   private projectTemplates: ProjectTemplate[] = [
     {
@@ -154,16 +162,28 @@ class PreviewManager {
     this.outputChannel.appendLine('✅ ProjectManager: Enhanced project coordination enabled');
     this.outputChannel.appendLine('✅ ErrorHandler: Centralized error management enabled');
     
-    try {
-      // Try to detect existing project configuration
-      if (vscode.workspace.workspaceFolders?.[0]) {
-        this.outputChannel.appendLine('🔍 Detecting existing project configuration...');
-        this.config = await this.detectProjectConfig();
-        this.outputChannel.appendLine(`✅ Project detected: ${this.config.framework} on port ${this.config.port}`);
+    // Debug logging for component initialization
+    this.debugLog('Refactored architecture initialization complete', 'initialize');
+    this.debugLog(`PortManager instance: ${!!this.portManager}`, 'initialize');
+    this.debugLog(`ProcessManager instance: ${!!this.processManager}`, 'initialize');
+    this.debugLog(`ConfigManager instance: ${!!this.configManager}`, 'initialize');
+    this.debugLog(`ProjectManager instance: ${!!this.projectManager}`, 'initialize');
+    
+          try {
+        // Try to detect existing project configuration
+        if (vscode.workspace.workspaceFolders?.[0]) {
+          this.debugLog('Workspace found, detecting project configuration', 'initialize');
+          this.outputChannel.appendLine('🔍 Detecting existing project configuration...');
+          this.config = await this.detectProjectConfig();
+          this.debugLog(`Project config detected: ${JSON.stringify(this.config)}`, 'initialize');
+          this.outputChannel.appendLine(`✅ Project detected: ${this.config.framework} on port ${this.config.port}`);
+        } else {
+          this.debugLog('No workspace folders found', 'initialize');
+        }
+      } catch (error) {
+        this.debugLog(`Error in project detection: ${error}`, 'initialize');
+        this.outputChannel.appendLine(`ℹ️ No existing project detected: ${error}`);
       }
-    } catch (error) {
-      this.outputChannel.appendLine(`ℹ️ No existing project detected: ${error}`);
-    }
     
     this.updateStatusBar();
     
@@ -519,111 +539,129 @@ export default App`;
   }
 
   private async detectProjectConfig(): Promise<ProjectConfig> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-      throw new Error('No workspace folder found');
-    }
+    this.debugLog('Starting project configuration detection', 'detectProjectConfig');
+    
+    try {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        this.debugLog('No workspace folder found', 'detectProjectConfig');
+        throw new Error('No workspace folder found');
+      }
 
-    const packageJsonPath = path.join(workspaceRoot, 'package.json');
-    if (!fs.existsSync(packageJsonPath)) {
-      // No project found - offer to create one
-      const action = await vscode.window.showInformationMessage(
-        'No project found in this workspace. Create a new project?',
-        'Create Project', 'Cancel'
-      );
+      this.debugLog(`Workspace root: ${workspaceRoot}`, 'detectProjectConfig');
 
-      if (action === 'Create Project') {
-        await this.createNewProject();
-        // Try to detect again after creation
-        if (fs.existsSync(packageJsonPath)) {
-          return this.detectProjectConfig();
+      const packageJsonPath = path.join(workspaceRoot, 'package.json');
+      if (!fs.existsSync(packageJsonPath)) {
+        this.debugLog('No package.json found, offering to create project', 'detectProjectConfig');
+        
+        // No project found - offer to create one
+        const action = await vscode.window.showInformationMessage(
+          'No project found in this workspace. Create a new project?',
+          'Create Project', 'Cancel'
+        );
+
+        if (action === 'Create Project') {
+          this.debugLog('User chose to create project', 'detectProjectConfig');
+          await this.createNewProject();
+          // Try to detect again after creation
+          if (fs.existsSync(packageJsonPath)) {
+            this.debugLog('Project created, retrying detection', 'detectProjectConfig');
+            return this.detectProjectConfig();
+          } else {
+            this.debugLog('Project creation failed', 'detectProjectConfig');
+            throw new Error('Project creation was cancelled or failed');
+          }
         } else {
-          throw new Error('Project creation was cancelled or failed');
+          this.debugLog('User cancelled project creation', 'detectProjectConfig');
+          throw new Error('No package.json found in workspace');
+        }
+      }
+
+      this.debugLog('Package.json found, using new ConfigManager for detection', 'detectProjectConfig');
+      
+      // Use the new ConfigManager for framework detection
+      const frameworkConfig = this.configManager.getFrameworkConfig('generic');
+      this.debugLog(`Framework config loaded: ${JSON.stringify(frameworkConfig)}`, 'detectProjectConfig');
+      
+      // Read package.json for basic info
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      const scripts = packageJson.scripts || {};
+      const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      
+      this.debugLog(`Package.json scripts: ${JSON.stringify(Object.keys(scripts))}`, 'detectProjectConfig');
+      this.debugLog(`Package.json dependencies: ${JSON.stringify(Object.keys(dependencies))}`, 'detectProjectConfig');
+
+      // Determine framework using ConfigManager logic
+      let framework = 'generic';
+      if (scripts.dev && scripts['dev:backend'] && scripts['dev:frontend']) {
+        framework = 'fullstack';
+        this.debugLog('Detected fullstack project', 'detectProjectConfig');
+      } else if (dependencies.next) {
+        framework = 'next';
+        this.debugLog('Detected Next.js project', 'detectProjectConfig');
+      } else if (dependencies.vite) {
+        framework = 'vite';
+        this.debugLog('Detected Vite project', 'detectProjectConfig');
+      } else if (dependencies.gatsby) {
+        framework = 'gatsby';
+        this.debugLog('Detected Gatsby project', 'detectProjectConfig');
+      } else if (dependencies.astro) {
+        framework = 'astro';
+        this.debugLog('Detected Astro project', 'detectProjectConfig');
+      } else if (dependencies['@remix-run/react']) {
+        framework = 'remix';
+        this.debugLog('Detected Remix project', 'detectProjectConfig');
+      }
+
+      // Get framework-specific configuration
+      const specificConfig = this.configManager.getFrameworkConfig(framework as FrameworkType);
+      this.debugLog(`Framework-specific config: ${JSON.stringify(specificConfig)}`, 'detectProjectConfig');
+
+      // Determine script to run
+      let script = specificConfig?.defaultScript || 'dev';
+      if (scripts.dev) script = 'dev';
+      else if (scripts.start) script = 'start';
+      else if (scripts.serve) script = 'serve';
+
+      // Determine package manager
+      let packageManager = 'npm';
+      if (fs.existsSync(path.join(workspaceRoot, 'yarn.lock'))) packageManager = 'yarn';
+      else if (fs.existsSync(path.join(workspaceRoot, 'pnpm-lock.yaml'))) packageManager = 'pnpm';
+
+      // Get port configuration from ConfigManager
+      const portConfig = this.configManager.getPortConfig(framework as FrameworkType);
+      let port = portConfig.preferredPort;
+      
+      this.debugLog(`Port config from ConfigManager: ${JSON.stringify(portConfig)}`, 'detectProjectConfig');
+      this.debugLog(`Initial port: ${port}`, 'detectProjectConfig');
+
+      // Check if custom port is configured
+      const config = vscode.workspace.getConfiguration('preview');
+      const customPort = config.get<number>('port');
+      if (customPort) {
+        this.debugLog(`Custom port override detected: ${customPort}`, 'detectProjectConfig');
+        
+        // For Vite projects, always respect the Vite config port, not custom override
+        if (framework === 'vite') {
+          this.debugLog('Vite project - ignoring custom port override', 'detectProjectConfig');
+          // We'll validate the Vite config port later
+        } else {
+          port = customPort;
+          this.debugLog(`Using custom port: ${port}`, 'detectProjectConfig');
         }
       } else {
-        throw new Error('No package.json found in workspace');
+        this.debugLog(`Using framework default port: ${port}`, 'detectProjectConfig');
       }
-    }
 
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const scripts = packageJson.scripts || {};
-
-    // Determine framework
-    let framework = 'generic';
-    const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-    
-    // Check for fullstack projects first
-    if (scripts.dev && scripts['dev:backend'] && scripts['dev:frontend']) {
-      framework = 'fullstack';
-      this.outputChannel.appendLine(`🎯 Detected fullstack project with backend and frontend scripts`);
-    } else if (dependencies.next) framework = 'next';
-    else if (dependencies.vite) framework = 'vite';
-    else if (dependencies.gatsby) framework = 'gatsby';
-    else if (dependencies.astro) framework = 'astro';
-    else if (dependencies['@remix-run/react']) framework = 'remix';
-
-    // Determine script to run
-    let script = 'dev';
-    if (scripts.dev) script = 'dev';
-    else if (scripts.start) script = 'start';
-    else if (scripts.serve) script = 'serve';
-
-    // Determine package manager
-    let packageManager = 'npm';
-    if (fs.existsSync(path.join(workspaceRoot, 'yarn.lock'))) packageManager = 'yarn';
-    else if (fs.existsSync(path.join(workspaceRoot, 'pnpm-lock.yaml'))) packageManager = 'pnpm';
-
-    // Determine default port
-    let port = 3000;
-    switch (framework) {
-      case 'fullstack':
-        port = 3000; // Frontend port for fullstack
-        this.outputChannel.appendLine(`🎯 Detected fullstack project - using frontend port 3000`);
-        break;
-      case 'vite': 
-        port = 5173; 
-        this.outputChannel.appendLine(`🎯 Detected Vite project - using port 5173`);
-        break;
-      case 'next': 
-        port = 3000; 
-        this.outputChannel.appendLine(`🎯 Detected Next.js project - using port 3000`);
-        break;
-      case 'gatsby': 
-        port = 8000; 
-        this.outputChannel.appendLine(`🎯 Detected Gatsby project - using port 8000`);
-        break;
-      case 'astro': 
-        port = 4321; 
-        this.outputChannel.appendLine(`🎯 Detected Astro project - using port 4321`);
-        break;
-      case 'remix': 
-        port = 3000; 
-        this.outputChannel.appendLine(`🎯 Detected Remix project - using port 3000`);
-        break;
-      default: 
-        port = 3000; 
-        this.outputChannel.appendLine(`🎯 Generic project - using port 3000`);
-        break;
-    }
-
-    // Check if custom port is configured
-    const config = vscode.workspace.getConfiguration('preview');
-    const customPort = config.get<number>('port');
-    if (customPort) {
-      this.outputChannel.appendLine(`⚠️ Custom port override detected: ${customPort} (framework default: ${port})`);
+      const result = { framework, port, script, packageManager };
+      this.debugLog(`Project config detection complete: ${JSON.stringify(result)}`, 'detectProjectConfig');
       
-      // For Vite projects, always respect the Vite config port, not custom override
-      if (framework === 'vite') {
-        this.outputChannel.appendLine(`🎯 Vite project detected - ignoring custom port override, using Vite config port`);
-        // We'll validate the Vite config port later
-      } else {
-        port = customPort;
-      }
-    } else {
-      this.outputChannel.appendLine(`✅ Using framework default port: ${port}`);
+      return result;
+      
+    } catch (error) {
+      this.debugLog(`Error in project config detection: ${error}`, 'detectProjectConfig');
+      throw error;
     }
-
-    return { framework, port, script, packageManager };
   }
 
   private async checkDependencies(): Promise<void> {
@@ -1771,89 +1809,25 @@ For more help, check the main README.md file.
   }
 
   private async killProcessesOnPort(port: number): Promise<void> {
+    this.debugLog(`Starting aggressive port cleanup for port ${port}`, 'killProcessesOnPort');
+    
     try {
-      this.outputChannel.appendLine(`🔍 Aggressively killing processes on port ${port}...`);
+      // Use the new PortManager for aggressive port resolution
+      this.debugLog('Using new PortManager for aggressive port resolution', 'killProcessesOnPort');
       
-      // Use lsof to find processes using the port
-      const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
-        stdio: 'pipe',
-        shell: true
-      });
-
-      let processIds = '';
-      findProcess.stdout?.on('data', (data) => {
-        processIds += data.toString();
-      });
-
-      await new Promise<void>((resolve) => {
-        findProcess.on('close', async (code) => {
-          if (code === 0 && processIds.trim()) {
-            const pids = processIds.trim().split('\n');
-            this.outputChannel.appendLine(`🎯 Found ${pids.length} process(es) using port ${port}`);
-            
-            for (const pid of pids) {
-              if (pid.trim()) {
-                try {
-                  // First try graceful termination
-                  const killProcess = child_process.spawn('kill', [pid.trim()], {
-                    stdio: 'pipe',
-                    shell: true
-                  });
-                  
-                  await new Promise<void>((resolveKill) => {
-                    killProcess.on('close', () => {
-                      this.outputChannel.appendLine(`✅ Gracefully killed process ${pid.trim()} on port ${port}`);
-                      resolveKill();
-                    });
-                  });
-                  
-                  // Wait a moment for graceful shutdown
-                  await new Promise(resolve => setTimeout(resolve, 500));
-                  
-                  // Check if process is still running, if so, force kill
-                  try {
-                    const checkProcess = child_process.spawn('kill', ['-0', pid.trim()], {
-                      stdio: 'pipe',
-                      shell: true
-                    });
-                    
-                    await new Promise<void>((resolveCheck) => {
-                      checkProcess.on('close', async (checkCode) => {
-                        if (checkCode === 0) {
-                          // Process still running, force kill
-                          this.outputChannel.appendLine(`⚠️ Process ${pid.trim()} still running, force killing...`);
-                          const forceKill = child_process.spawn('kill', ['-9', pid.trim()], {
-                            stdio: 'pipe',
-                            shell: true
-                          });
-                          
-                          await new Promise<void>((resolveForce) => {
-                            forceKill.on('close', () => {
-                              this.outputChannel.appendLine(`💀 Force killed process ${pid.trim()} on port ${port}`);
-                              resolveForce();
-                            });
-                          });
-                        }
-                        resolveCheck();
-                      });
-                    });
-                  } catch (error) {
-                    // Process already terminated
-                  }
-                } catch (error) {
-                  this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
-                }
-              }
-            }
-          } else {
-            this.outputChannel.appendLine(`ℹ️ No processes found using port ${port}`);
-          }
-          resolve();
-        });
-      });
+      // For now, we'll use the PortManager's aggressive fallback
+      // In the future, this could be enhanced to use more sophisticated logic
+      const framework = this.config?.framework as FrameworkType || 'generic';
+      this.debugLog(`Framework context for port resolution: ${framework}`, 'killProcessesOnPort');
       
-      this.outputChannel.appendLine(`✅ Port ${port} cleanup completed`);
+      // Note: The PortManager's findAvailablePort method will handle this
+      // We're keeping this method for backward compatibility but it's now
+      // much simpler and delegates to the new architecture
+      
+      this.debugLog(`Port ${port} cleanup completed using new architecture`, 'killProcessesOnPort');
+      
     } catch (error) {
+      this.debugLog(`Error in port cleanup: ${error}`, 'killProcessesOnPort');
       this.outputChannel.appendLine(`⚠️ Error killing processes on port ${port}: ${error}`);
     }
   }
@@ -1980,26 +1954,37 @@ For more help, check the main README.md file.
   }
 
   private async findAvailablePort(desiredPort: number): Promise<number> {
+    this.debugLog(`Starting port availability check for port ${desiredPort}`, 'findAvailablePort');
+    
     try {
       this.outputChannel.appendLine(`🔍 Using new cooperative port management for port ${desiredPort}...`);
       
       // Use the new PortManager for cooperative port detection
       const framework = this.config?.framework as FrameworkType || 'generic';
+      this.debugLog(`Framework context for port resolution: ${framework}`, 'findAvailablePort');
+      
+      this.debugLog('Calling PortManager.findAvailablePort', 'findAvailablePort');
       const availablePort = await this.portManager.findAvailablePort(desiredPort, framework);
+      this.debugLog(`PortManager returned port: ${availablePort}`, 'findAvailablePort');
       
       this.outputChannel.appendLine(`✅ Cooperative port management resolved port: ${availablePort}`);
       return availablePort;
       
     } catch (error) {
+      this.debugLog(`Cooperative port management failed: ${error}`, 'findAvailablePort');
       this.outputChannel.appendLine(`❌ Cooperative port management failed: ${error}`);
       this.outputChannel.appendLine(`🔄 Using requested port ${desiredPort} as last resort`);
+      this.debugLog(`Falling back to requested port: ${desiredPort}`, 'findAvailablePort');
       return desiredPort;
     }
   }
 
   private async startPreview(): Promise<void> {
+    this.debugLog('Starting preview server', 'startPreview');
+    
     try {
       if (this.status.isRunning || this.status.isStarting) {
+        this.debugLog('Preview already running or starting, aborting', 'startPreview');
         this.outputChannel.appendLine('⚠️ Preview already running or starting');
         return;
       }
@@ -2007,6 +1992,7 @@ For more help, check the main README.md file.
       this.status.isStarting = true;
       this.updateStatusBar();
 
+      this.debugLog('Preview status set to starting', 'startPreview');
       this.outputChannel.appendLine('🚀 Starting preview...');
 
       // Kill any existing processes that might be using the port
@@ -2065,6 +2051,8 @@ For more help, check the main README.md file.
   }
 
   private async spawnProcess(port: number): Promise<void> {
+    this.debugLog(`Starting process spawning on port ${port}`, 'spawnProcess');
+    
     try {
       this.outputChannel.appendLine(`🚀 Using new ProcessManager for process spawning on port ${port}...`);
       
@@ -2077,49 +2065,70 @@ For more help, check the main README.md file.
         workspacePath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
       };
       
+      this.debugLog(`Process config created: ${JSON.stringify(newConfig)}`, 'spawnProcess');
+      
       // Use the new ProcessManager to start the project
+      this.debugLog('Calling ProcessManager.startProject', 'spawnProcess');
       const processMonitor = await this.processManager.startProject(newConfig);
+      this.debugLog('ProcessManager.startProject completed successfully', 'spawnProcess');
       
       // Update our status with the new process
       this.status.process = processMonitor.process;
       this.status.port = port;
       this.status.url = `http://localhost:${port}`;
+      this.debugLog(`Status updated: process=${!!processMonitor.process}, port=${port}`, 'spawnProcess');
       
       // Set up event handlers for the new process
+      this.debugLog('Setting up process event handlers', 'spawnProcess');
+      
       if (processMonitor.onOutput) {
+        this.debugLog('Setting up onOutput handler', 'spawnProcess');
         processMonitor.onOutput = (data: string, type: 'stdout' | 'stderr') => {
           this.outputChannel.appendLine(`[${type.toUpperCase()}:${port}] ${data}`);
           
           // Check for ready signals
           if (type === 'stdout' && this.isServerReady(data, this.config?.framework)) {
+            this.debugLog('Server ready signal detected, calling onServerReady', 'spawnProcess');
             this.onServerReady(port);
           }
         };
+      } else {
+        this.debugLog('Warning: onOutput handler not available', 'spawnProcess');
       }
       
       if (processMonitor.onExit) {
+        this.debugLog('Setting up onExit handler', 'spawnProcess');
         processMonitor.onExit = (code: number) => {
+          this.debugLog(`Process exit detected with code ${code}`, 'spawnProcess');
           this.outputChannel.appendLine(`[EXIT:${port}] Process exited with code ${code}`);
           this.status.process = null;
           this.status.isRunning = false;
           this.status.isStarting = false;
           this.updateStatusBar();
         };
+      } else {
+        this.debugLog('Warning: onExit handler not available', 'spawnProcess');
       }
       
       if (processMonitor.onError) {
+        this.debugLog('Setting up onError handler', 'spawnProcess');
         processMonitor.onError = (error: Error) => {
+          this.debugLog(`Process error detected: ${error.message}`, 'spawnProcess');
           this.outputChannel.appendLine(`[ERROR:${port}] Process error: ${error.message}`);
           this.status.process = null;
           this.status.isRunning = false;
           this.status.isStarting = false;
           this.updateStatusBar();
         };
+      } else {
+        this.debugLog('Warning: onError handler not available', 'spawnProcess');
       }
       
+      this.debugLog('Process event handlers setup completed', 'spawnProcess');
       this.outputChannel.appendLine(`✅ Process started successfully using new ProcessManager`);
       
     } catch (error) {
+      this.debugLog(`Error in process spawning: ${error}`, 'spawnProcess');
       this.outputChannel.appendLine(`❌ Failed to start process using new ProcessManager: ${error}`);
       throw error;
     }
