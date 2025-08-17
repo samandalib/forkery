@@ -12,6 +12,8 @@ Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Crea
 - **[DEVELOPMENT.md](./02-Development/DEVELOPMENT.md)** - Complete development guide and setup
 - **[TESTING.md](./02-Development/TESTING.md)** - Testing procedures and scenarios
 - **[GIT_WORKFLOW.md](./02-Development/GIT_WORKFLOW.md)** - Git workflow and development process
+- **[OPTIMIZATION.md](./02-Development/OPTIMIZATION.md)** - Refactoring and optimization plan
+- **[REFACTORING-OPTIMIZATION-PROGRESS.md](./02-Development/REFACTORING-OPTIMIZATION-PROGRESS.md)** - **🔄 Current refactoring progress tracker**
 - **[test-extension.sh](./02-Development/test-extension.sh)** - Quick testing and compilation script
 
 ### **03-Technical/** 🔧 **Technical Details**
@@ -48,7 +50,8 @@ Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Crea
 1. **Setup**: [DEVELOPMENT.md](./02-Development/DEVELOPMENT.md) - Complete development setup
 2. **Workflow**: [GIT_WORKFLOW.md](./02-Development/GIT_WORKFLOW.md) - Git workflow and branching
 3. **Testing**: [TESTING.md](./02-Development/TESTING.md) - Testing procedures
-4. **Quick Test**: [test-extension.sh](./02-Development/test-extension.sh) - Fast testing workflow
+4. **🔄 Current Progress**: [REFACTORING-OPTIMIZATION-PROGRESS.md](./02-Development/REFACTORING-OPTIMIZATION-PROGRESS.md) - **Refactoring status and next steps**
+5. **Quick Test**: [test-extension.sh](./02-Development/test-extension.sh) - Fast testing workflow
 
 ### **🔧 For Technical Deep Dives**
 1. **UI Issues**: [UI_TROUBLESHOOTING.md](./03-Technical/UI_TROUBLESHOOTING.md) - Debug UI problems
@@ -109,6 +112,7 @@ Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Crea
 - Read [DEVELOPMENT.md](./02-Development/DEVELOPMENT.md) for technical details
 - Use [TESTING.md](./02-Development/TESTING.md) for debugging procedures
 - Check [GIT_WORKFLOW.md](./02-Development/GIT_WORKFLOW.md) for contribution guidelines
+- **🔄 Track Progress**: [REFACTORING-OPTIMIZATION-PROGRESS.md](./02-Development/REFACTORING-OPTIMIZATION-PROGRESS.md) - Current refactoring status
 
 ---
 
