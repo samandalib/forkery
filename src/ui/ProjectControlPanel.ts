@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { DeploymentDiagnosticService, DeploymentDiagnostic } from './DeploymentDiagnostic';
 
 export interface ProjectStatus {
     isRunning: boolean;
@@ -85,9 +86,11 @@ export class ProjectControlPanel {
                         this.stopServer();
                         break;
 
-
                     case 'getProjectInfo':
                         this.getProjectInfo();
+                        break;
+                    case 'runDeploymentDiagnostic':
+                        this.runDeploymentDiagnostic();
                         break;
                 }
             },
@@ -96,7 +99,7 @@ export class ProjectControlPanel {
         );
     }
 
-        private constructor(panelOrExtensionUri: vscode.WebviewPanel | vscode.Uri) {
+    private constructor(panelOrExtensionUri: vscode.WebviewPanel | vscode.Uri) {
         if ('webview' in panelOrExtensionUri) {
             // This is a WebviewPanel
             this._panel = panelOrExtensionUri;
@@ -116,9 +119,12 @@ export class ProjectControlPanel {
                             this.stopServer();
                             break;
 
-
                         case 'getProjectInfo':
                             this.getProjectInfo();
+                            break;
+                            
+                        case 'runDeploymentDiagnostic':
+                            this.runDeploymentDiagnostic();
                             break;
                     }
                 },
@@ -155,7 +161,7 @@ export class ProjectControlPanel {
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Project Control Panel - Forkery Extension</title>
+                <title>Project Control Panel - Pistachio Vibe Extension</title>
                 <style>
                     /* Reset and base styles */
                     * {
@@ -365,10 +371,14 @@ export class ProjectControlPanel {
                         box-shadow: 0 4px 12px rgba(54, 54, 54, 0.3);
                     }
 
-                    .btn:disabled {
-                        opacity: 0.6;
-                        cursor: not-allowed;
-                        transform: none !important;
+                    /* Deployment Diagnostic Button */
+                    .btn.deployment-diagnostic {
+                        background: #2196f3;
+                        border-color: #1976d2;
+                    }
+
+                    .btn.deployment-diagnostic:hover {
+                        background: #1976d2;
                     }
 
                     /* Responsive Design */
@@ -409,25 +419,6 @@ export class ProjectControlPanel {
 
                     .fade-in {
                         animation: fadeIn 0.5s ease-out;
-                    }
-
-                    @keyframes pulse {
-                        0%, 100% { opacity: 1; }
-                        50% { opacity: 0.7; }
-                    }
-
-                    .pulse {
-                        animation: pulse 2s infinite;
-                    }
-
-                    @keyframes slideIn {
-                        from { transform: translateX(100%); opacity: 0; }
-                        to { transform: translateX(0); opacity: 1; }
-                    }
-
-                    @keyframes slideOut {
-                        from { transform: translateX(0); opacity: 1; }
-                        to { transform: translateX(100%); opacity: 0; }
                     }
                 </style>
             </head>
@@ -481,6 +472,20 @@ export class ProjectControlPanel {
                                     </svg>
                                 </div>
                             </button>
+                            <button class="btn deployment-diagnostic" id="deployment-diagnostic-btn">
+                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <span class="btn-text">Deployment Readiness</span>
+                                <div class="btn-spinner" style="display: none;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="10" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+                                            <animate attributeName="stroke-dasharray" dur="2s" values="0 31.416;15.708 15.708;0 31.416" repeatCount="indefinite"/>
+                                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-15.708;-31.416" repeatCount="indefinite"/>
+                                        </circle>
+                                    </svg>
+                                </div>
+                            </button>
                         </div>
 
                         <div class="project-info-compact">
@@ -488,6 +493,22 @@ export class ProjectControlPanel {
                                 <span class="info-label">Port:</span>
                                 <span class="info-value" id="project-port">Loading...</span>
                             </span>
+                        </div>
+                    </div>
+
+                    <!-- Diagnostic Results Display -->
+                    <div id="diagnostic-results" style="display: none; margin-top: 20px; padding: 16px; background: #2d2d30; border-radius: 8px; border: 1px solid #3e3e42;">
+                        <h3 style="margin: 0 0 16px 0; color: #ffffff; font-size: 16px;">🔍 Deployment Diagnostic Results</h3>
+                        <div id="diagnostic-content">
+                            <!-- Results will be populated here -->
+                        </div>
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #3e3e42;">
+                            <button id="copy-diagnostic-btn" class="btn" style="background: #4caf50; border-color: #388e3c; margin-right: 8px;">
+                                📋 Copy Report
+                            </button>
+                            <button id="hide-diagnostic-btn" class="btn" style="background: #757575; border-color: #616161;">
+                                Hide Results
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -510,6 +531,12 @@ export class ProjectControlPanel {
                             case 'updateStatus':
                                 console.log('ProjectControlPanel: Processing updateStatus');
                                 updateProjectStatus(message.data.status);
+                                break;
+                            case 'diagnosticComplete':
+                                console.log('ProjectControlPanel: Processing diagnosticComplete');
+                                showDiagnosticResults(message.data);
+                                // Stop the button loading state
+                                setButtonLoading('deployment-diagnostic-btn', false);
                                 break;
                         }
                     });
@@ -563,6 +590,31 @@ export class ProjectControlPanel {
                         vscode.postMessage({ command: 'stopServer' });
                     });
 
+                    // Deployment diagnostic button functionality
+                    document.getElementById('deployment-diagnostic-btn').addEventListener('click', function(e) {
+                        e.preventDefault();
+                        setButtonLoading('deployment-diagnostic-btn', true);
+                        vscode.postMessage({ command: 'runDeploymentDiagnostic' });
+                    });
+
+                    // Handle copy notification
+                    window.addEventListener('message', event => {
+                        const message = event.data;
+                        if (message.command === 'showNotification') {
+                            // Show a temporary success message
+                            const copyBtn = document.getElementById('copy-diagnostic-btn');
+                            if (copyBtn) {
+                                const originalText = copyBtn.textContent;
+                                copyBtn.textContent = '✅ Copied!';
+                                copyBtn.style.background = '#4caf50';
+                                setTimeout(() => {
+                                    copyBtn.textContent = originalText;
+                                    copyBtn.style.background = '#4caf50';
+                                }, 2000);
+                            }
+                        }
+                    });
+
                     function setButtonLoading(buttonId, isLoading) {
                         const button = document.getElementById(buttonId);
                         if (button) {
@@ -612,8 +664,81 @@ export class ProjectControlPanel {
                     // Initialize status on load
                     updateProjectStatus('stopped');
 
+                    // Add diagnostic results functionality
+                    function showDiagnosticResults(diagnostic) {
+                        const resultsDiv = document.getElementById('diagnostic-results');
+                        const contentDiv = document.getElementById('diagnostic-content');
+                        
+                        if (resultsDiv && contentDiv) {
+                            // Populate the content
+                            let html = \`
+                                <div style="margin-bottom: 16px;">
+                                    <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                        <span style="font-size: 24px; font-weight: bold; color: \${diagnostic.score >= 80 ? '#4caf50' : diagnostic.score >= 50 ? '#ff9800' : '#f44336'};">
+                                            \${diagnostic.score}/100
+                                        </span>
+                                        <span style="margin-left: 12px; padding: 4px 8px; background: \${diagnostic.status === 'READY' ? '#4caf50' : diagnostic.status === 'NEEDS_CONFIG' ? '#ff9800' : '#f44336'}; color: white; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                            \${diagnostic.status}
+                                        </span>
+                                        <span style="margin-left: 8px; padding: 4px 8px; background: \${diagnostic.riskLevel === 'LOW' ? '#4caf50' : diagnostic.riskLevel === 'MEDIUM' ? '#ff9800' : '#f44336'}; color: white; border-radius: 4px; font-size: 12px; font-weight: bold;">
+                                            \${diagnostic.riskLevel} RISK
+                                        </span>
+                                    </div>
+                                </div>
+                            \`;
+                            
+                            if (diagnostic.issues.length > 0) {
+                                html += \`<div style="margin-bottom: 12px;"><strong style="color: #f44336;">❌ Issues Found:</strong><ul style="margin: 8px 0; padding-left: 20px; color: #cccccc;">\`;
+                                diagnostic.issues.forEach(issue => {
+                                    html += \`<li>\${issue}</li>\`;
+                                });
+                                html += \`</ul></div>\`;
+                            }
+                            
+                            if (diagnostic.warnings.length > 0) {
+                                html += \`<div style="margin-bottom: 12px;"><strong style="color: #ff9800;">⚠️ Warnings:</strong><ul style="margin: 8px 0; padding-left: 20px; color: #cccccc;">\`;
+                                diagnostic.warnings.forEach(warning => {
+                                    html += \`<li>\${warning}</li>\`;
+                                });
+                                html += \`</ul></div>\`;
+                            }
+                            
+                            if (diagnostic.recommendations.length > 0) {
+                                html += \`<div style="margin-bottom: 12px;"><strong style="color: #4caf50;">💡 Recommendations:</strong><ul style="margin: 8px 0; padding-left: 20px; color: #cccccc;">\`;
+                                diagnostic.recommendations.forEach(rec => {
+                                    html += \`<li>\${rec}</li>\`;
+                                });
+                                html += \`</ul></div>\`;
+                            }
+                            
+                            contentDiv.innerHTML = html;
+                            resultsDiv.style.display = 'block';
+                        }
+                    }
+                    
+                    // Copy diagnostic report to clipboard
+                    document.getElementById('copy-diagnostic-btn').addEventListener('click', function() {
+                        const contentDiv = document.getElementById('diagnostic-content');
+                        if (contentDiv) {
+                            const text = contentDiv.innerText;
+                            navigator.clipboard.writeText(text).then(() => {
+                                vscode.postMessage({ command: 'showNotification', message: 'Diagnostic report copied to clipboard!' });
+                            }).catch(() => {
+                                vscode.postMessage({ command: 'showNotification', message: 'Failed to copy to clipboard' });
+                            });
+                        }
+                    });
+                    
+                    // Hide diagnostic results
+                    document.getElementById('hide-diagnostic-btn').addEventListener('click', function() {
+                        const resultsDiv = document.getElementById('diagnostic-results');
+                        if (resultsDiv) {
+                            resultsDiv.style.display = 'none';
+                        }
+                    });
+
                     console.log('Project Control Panel loaded successfully!');
-                    console.log('Features: Interactive controls, notification system');
+                    console.log('Features: Interactive controls, deployment diagnostic button, diagnostic results display');
                 </script>
             </body>
             </html>
@@ -639,8 +764,6 @@ export class ProjectControlPanel {
         }
     }
 
-
-
     private async stopServer() {
         try {
             vscode.window.showInformationMessage('🛑 Stopping the server...');
@@ -659,10 +782,6 @@ export class ProjectControlPanel {
             this.updateProjectStatus('stopped');
         }
     }
-
-
-
-
 
     private async getProjectInfo() {
         try {
@@ -703,6 +822,75 @@ export class ProjectControlPanel {
                 port: 'N/A'
                 // Removed status: 'stopped' to prevent overriding actual server status
             });
+        }
+    }
+
+    private async runDeploymentDiagnostic(): Promise<void> {
+        try {
+            // Use our clean, modular deployment diagnostic service
+            const diagnostic = await DeploymentDiagnosticService.runDiagnostic();
+            
+            // Show the result in a notification
+            vscode.window.showInformationMessage(`Deployment Diagnostic Complete: ${diagnostic.score}/100 - ${diagnostic.status}`);
+            
+            // Show detailed results in output channel
+            this.showDiagnosticResults(diagnostic);
+            
+            // Send diagnostic results to the webview to display in UI
+            this.sendDiagnosticResults(diagnostic);
+            
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to run deployment diagnostic: ${error}`);
+        }
+    }
+
+    private showDiagnosticResults(diagnostic: DeploymentDiagnostic): void {
+        // Create output channel for diagnostic results
+        const outputChannel = vscode.window.createOutputChannel('Deployment Diagnostic');
+        outputChannel.show();
+        
+        outputChannel.appendLine('🔍 Deployment Readiness Diagnostic Results');
+        outputChannel.appendLine('=====================================');
+        outputChannel.appendLine(`Score: ${diagnostic.score}/100`);
+        outputChannel.appendLine(`Status: ${diagnostic.status}`);
+        outputChannel.appendLine(`Risk Level: ${diagnostic.riskLevel}`);
+        outputChannel.appendLine('');
+        
+        if (diagnostic.issues.length > 0) {
+            outputChannel.appendLine('❌ Issues Found:');
+            diagnostic.issues.forEach(issue => outputChannel.appendLine(`  • ${issue}`));
+            outputChannel.appendLine('');
+        }
+        
+        if (diagnostic.warnings.length > 0) {
+            outputChannel.appendLine('⚠️ Warnings:');
+            diagnostic.warnings.forEach(warning => outputChannel.appendLine(`  • ${warning}`));
+            outputChannel.appendLine('');
+        }
+        
+        if (diagnostic.recommendations.length > 0) {
+            outputChannel.appendLine('💡 Recommendations:');
+            diagnostic.recommendations.forEach(rec => outputChannel.appendLine(`  • ${rec}`));
+            outputChannel.appendLine('');
+        }
+        
+        outputChannel.appendLine('📋 Copy this output and share it with your AI agent for specific guidance.');
+    }
+
+    private sendDiagnosticResults(diagnostic: DeploymentDiagnostic): void {
+        const message = {
+            command: 'diagnosticComplete',
+            data: diagnostic
+        };
+
+        // Send to panel if it exists
+        if (this._panel) {
+            this._panel.webview.postMessage(message);
+        }
+        
+        // Send to view if it exists
+        if (this._view) {
+            this._view.webview.postMessage(message);
         }
     }
 

@@ -15,6 +15,8 @@ Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Crea
 - **[test-extension.sh](./02-Development/test-extension.sh)** - Quick testing and compilation script
 
 ### **03-Technical/** 🔧 **Technical Details**
+- **[FUNCTIONALITY_RESTORATION_SUMMARY.md](./03-Technical/FUNCTIONALITY_RESTORATION_SUMMARY.md)** - **📋 EXECUTIVE SUMMARY** - Complete overview of critical fixes and restoration
+- **[UI_LOADING_FIX_0.1.26.md](./03-Technical/UI_LOADING_FIX_0.1.26.md)** - **🚨 CRITICAL FIX** - UI loading issues and functionality restoration
 - **[UI_ARCHITECTURE_LEARNINGS.md](./03-Technical/UI_ARCHITECTURE_LEARNINGS.md)** - UI architecture insights and lessons learned
 - **[UI_TROUBLESHOOTING.md](./03-Technical/UI_TROUBLESHOOTING.md)** - Complete UI debugging guide
 - **[UI_STYLING_DECISIONS.md](./03-Technical/UI_STYLING_DECISIONS.md)** - UI design decisions and rationale
@@ -81,20 +83,27 @@ Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Crea
 
 ## 🔄 **Current Status**
 
-**🎉 MILESTONE 0.2.0 COMPLETED!**
+**🚨 CRITICAL ISSUE RESOLVED - Version 1.0.26-diagnosticAdded**
 
-✅ **Pistachio Transformation Complete:**
-- Complete rebranding from "cursor-preview" to "Pistachio"
-- Professional UI with integrated banners
-- Smart context-aware interface switching
-- Enhanced project detection and management
-- Production-ready packaging and distribution
+✅ **Functionality Restored & Enhanced:**
+- **Server functionality fully restored** - Start/stop buttons working properly
+- **UI loading issues resolved** - Webviews loading without service worker errors
+- **Preview panel duplication fixed** - Single preview panel behavior restored
+- **Deployment diagnostic feature added** - Comprehensive project readiness analysis
+- **Button state management fixed** - Proper loading states and completion handling
+
+**🔧 What Was Fixed:**
+- Overcomplicated server startup logic reverted to working version
+- Webview registration mismatches corrected
+- Command registration completed for all defined commands
+- Duplicate code and broken logic cleaned up
+- Diagnostic feature integrated without breaking core functionality
 
 **🚀 Ready for:**
-- VS Code Marketplace submission
-- Website integration for clickable banners
-- User adoption and feedback collection
-- Future feature development
+- Testing and validation of restored functionality
+- User adoption with working server controls
+- Future feature development with established best practices
+- VS Code Marketplace submission (after testing)
 
 ---
 
