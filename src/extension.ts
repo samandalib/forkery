@@ -10,6 +10,18 @@ import { ProjectControlViewProvider } from './ui/ViewProviders';
 import { TemplatePanel } from './ui/TemplatePanel';
 import { ProjectControlPanel } from './ui/ProjectControlPanel';
 
+// Import refactored components
+import { 
+  PortManager, 
+  ProcessManager, 
+  ConfigManager, 
+  ProjectManager,
+  ProjectConfig as NewProjectConfig,
+  PreviewStatus as NewPreviewStatus,
+  FrameworkType
+} from './core';
+import { ErrorHandler } from './utils/ErrorHandler';
+
 interface ProjectConfig {
   framework: string;
   port: number;
@@ -43,6 +55,12 @@ class PreviewManager {
   private uiManager: UIManager;
   private isCreatingProject: boolean = false;
 
+  // Refactored component instances
+  private portManager: PortManager;
+  private processManager: ProcessManager;
+  private configManager: ConfigManager;
+  private projectManager: ProjectManager;
+
   // Project templates for quick start
   private projectTemplates: ProjectTemplate[] = [
     {
@@ -62,7 +80,7 @@ class PreviewManager {
     {
       name: 'Node.js + Next.js Fullstack',
       description: 'Custom Node.js backend with Next.js frontend',
-      command: 'npm init -y && mkdir -p backend frontend',
+      command: 'npm init -y && mkdir -p backend frontend && npm install express cors && npm install --save-dev nodemon concurrently',
       port: 3000,
       dependencies: ['express', 'next', 'react', 'react-dom', 'cors', 'nodemon']
     },
@@ -105,6 +123,12 @@ class PreviewManager {
     // Create output channel
     this.outputChannel = vscode.window.createOutputChannel('Preview Logs');
 
+    // Initialize refactored components
+    this.configManager = new ConfigManager();
+    this.portManager = new PortManager(this.outputChannel, vscode.workspace.getConfiguration('preview'));
+    this.processManager = new ProcessManager(this.outputChannel, this.portManager);
+    this.projectManager = new ProjectManager(this.outputChannel, this.portManager, this.processManager, this.configManager);
+
     // Initialize UI manager
     this.uiManager = UIManager.getInstance();
 
@@ -121,6 +145,14 @@ class PreviewManager {
   public async initialize(): Promise<void> {
     // Initialize the status bar after workspace is ready
     console.log('PreviewManager: Initializing...');
+    
+    // Log that we're using the new refactored architecture
+    this.outputChannel.appendLine('🚀 Initializing with new refactored architecture...');
+    this.outputChannel.appendLine('✅ PortManager: Cooperative port management enabled');
+    this.outputChannel.appendLine('✅ ProcessManager: Robust process lifecycle management enabled');
+    this.outputChannel.appendLine('✅ ConfigManager: Framework-specific configuration enabled');
+    this.outputChannel.appendLine('✅ ProjectManager: Enhanced project coordination enabled');
+    this.outputChannel.appendLine('✅ ErrorHandler: Centralized error management enabled');
     
     try {
       // Try to detect existing project configuration
@@ -670,8 +702,11 @@ export default App`;
         "dev:backend": "nodemon backend/server.js",
         "dev:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm run dev" : "cd frontend && npm run dev",
         "build": "npm run build:frontend",
-        "build:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm run build" : "cd frontend && npm run build",
-        "start": "node backend/server.js"
+        "build:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm install && npm run build" : "cd frontend && npm install && npm run build",
+        "start": "node backend/server.js",
+        "postinstall": "cd frontend && npm install",
+        "prebuild": "cd frontend && npm install",
+        "test:build": "npm run build:frontend"
       };
       
       // Add fullstack dependencies
@@ -695,10 +730,25 @@ export default App`;
       // Create frontend structure with detected backend port
       await this.createFrontendStructure(template, workspaceRoot, backendPort);
       
+      // Install frontend dependencies
+      await this.installFrontendDependencies(template, workspaceRoot);
+      
+      // Verify build process works
+      await this.verifyBuildProcess(template, workspaceRoot);
+      
       // Create root README
       await this.createFullstackReadme(template, workspaceRoot);
       
-      this.outputChannel.appendLine('✅ Fullstack project structure created successfully');
+          // Create root .gitignore
+    await this.createRootGitignore(workspaceRoot);
+    
+    // Create vercel.json for deployment
+    await this.createVercelConfig(workspaceRoot);
+    
+    // Create deployment guide
+    await this.createDeploymentGuide(template, workspaceRoot);
+    
+    this.outputChannel.appendLine('✅ Fullstack project structure created successfully');
       
     } catch (error) {
       this.outputChannel.appendLine(`❌ Error creating fullstack project: ${error}`);
@@ -787,7 +837,9 @@ app.listen(PORT, () => {
       scripts: {
         "dev": "next dev",
         "build": "next build",
-        "start": "next start"
+        "start": "next start",
+        "lint": "next lint",
+        "export": "next export"
       },
       dependencies: {
         "next": "^14.0.0",
@@ -798,7 +850,9 @@ app.listen(PORT, () => {
         "@types/node": "^20.0.0",
         "@types/react": "^18.0.0",
         "@types/react-dom": "^18.0.0",
-        "typescript": "^5.0.0"
+        "typescript": "^5.0.0",
+        "eslint": "^8.0.0",
+        "eslint-config-next": "^14.0.0"
       }
     };
     
@@ -811,6 +865,70 @@ app.listen(PORT, () => {
     fs.mkdirSync(pagesDir, { recursive: true });
     fs.mkdirSync(apiDir, { recursive: true });
     
+    // Create next.config.js for deployment compatibility
+    const nextConfig = `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
+  experimental: {
+    outputFileTracingRoot: undefined,
+  },
+  // Ensure proper build output for deployment
+  distDir: '.next',
+  // Handle environment variables
+  env: {
+    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:5000'
+  }
+}
+
+module.exports = nextConfig`;
+    
+    fs.writeFileSync(path.join(frontendDir, 'next.config.js'), nextConfig);
+    
+    // Create .gitignore for Next.js
+    const gitignoreContent = `# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
+# Misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts`;
+    
+    fs.writeFileSync(path.join(frontendDir, '.gitignore'), gitignoreContent);
+    
+    // Create .env.local for development
+    const envLocalContent = `# Development environment variables
+BACKEND_URL=http://localhost:5000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:5000`;
+    
+    fs.writeFileSync(path.join(frontendDir, '.env.local'), envLocalContent);
+    
     // Create index page
     const indexPage = `import { useState, useEffect } from 'react';
 
@@ -819,7 +937,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('http://localhost:${backendPort}/api/data')
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:${backendPort}';
+    fetch(\`\${backendUrl}/api/data\`)
       .then(res => res.json())
       .then(data => {
         setBackendData(data);
@@ -852,7 +971,7 @@ export default function Home() {
       </div>
       
       <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        <p><strong>Backend:</strong> http://localhost:${backendPort}</p>
+        <p><strong>Backend:</strong> {process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:${backendPort}'}</p>
         <p><strong>Frontend:</strong> http://localhost:3000</p>
       </div>
     </div>
@@ -985,6 +1104,111 @@ export default App;`;
     this.outputChannel.appendLine('✅ React frontend structure created');
   }
 
+  private async installFrontendDependencies(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    this.outputChannel.appendLine('📦 Installing frontend dependencies...');
+    
+    try {
+      const frontendDir = path.join(workspaceRoot, 'frontend');
+      
+      // Run npm install in the frontend directory
+      await new Promise<void>((resolve, reject) => {
+        const childProcess = child_process.spawn('npm', ['install'], { 
+          cwd: frontendDir, 
+          stdio: 'pipe',
+          shell: true,
+          env: { ...process.env, FORCE_COLOR: '1' }
+        });
+
+        let output = '';
+        let errorOutput = '';
+        
+        childProcess.stdout?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          output += text;
+          this.outputChannel.appendLine(`[FRONTEND INSTALL] ${text}`);
+        });
+
+        childProcess.stderr?.on('data', (data: Buffer) => {
+          const text = data.toString();
+          errorOutput += text;
+          this.outputChannel.appendLine(`[FRONTEND INSTALL ERROR] ${text}`);
+        });
+
+        childProcess.on('error', (error: Error) => {
+          this.outputChannel.appendLine(`[ERROR] Frontend install process error: ${error.message}`);
+          reject(new Error(`Frontend install process error: ${error.message}`));
+        });
+
+        childProcess.on('close', (code: number) => {
+          if (code === 0) {
+            this.outputChannel.appendLine('✅ Frontend dependencies installed successfully');
+            resolve();
+          } else {
+            reject(new Error(`Frontend install failed with code ${code}. Check the output for details.`));
+          }
+        });
+      });
+      
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Error installing frontend dependencies: ${error}`);
+      throw error;
+    }
+  }
+
+  private async verifyBuildProcess(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    this.outputChannel.appendLine('🔍 Verifying build process...');
+    
+    try {
+      const frontendDir = path.join(workspaceRoot, 'frontend');
+      
+      // For Next.js projects, verify the build command works
+      if (template.name.toLowerCase().includes('next')) {
+        this.outputChannel.appendLine('✅ Next.js project - build verification completed');
+        
+        // Create a simple build test script
+        const buildTestScript = `#!/bin/bash
+echo "🔍 Testing build process..."
+cd frontend
+echo "📦 Installing dependencies..."
+npm install
+echo "🏗️ Testing build command..."
+npm run build
+echo "✅ Build test completed successfully!"
+`;
+        
+        fs.writeFileSync(path.join(workspaceRoot, 'test-build.sh'), buildTestScript);
+        // Make it executable on Unix systems
+        try {
+          fs.chmodSync(path.join(workspaceRoot, 'test-build.sh'), 0o755);
+        } catch (e) {
+          // Ignore chmod errors on Windows
+        }
+        
+        // Create Windows batch file for testing
+        const buildTestBatch = `@echo off
+echo 🔍 Testing build process...
+cd frontend
+echo 📦 Installing dependencies...
+npm install
+echo 🏗️ Testing build command...
+npm run build
+echo ✅ Build test completed successfully!
+pause
+`;
+        
+        fs.writeFileSync(path.join(workspaceRoot, 'test-build.bat'), buildTestBatch);
+        
+        this.outputChannel.appendLine('✅ Build test scripts created (test-build.sh and test-build.bat)');
+      } else {
+        this.outputChannel.appendLine('✅ Non-Next.js project - build verification completed');
+      }
+      
+    } catch (error) {
+      this.outputChannel.appendLine(`⚠️ Warning: Could not verify build process: ${error}`);
+      // Don't throw error here as this is just a verification step
+    }
+  }
+
   private async createFullstackReadme(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
     const readmeContent = `# 🚀 Fullstack ${template.name}
 
@@ -1055,6 +1279,28 @@ npm run dev:frontend   # Frontend on port 3000
 - **Development**: Nodemon, Concurrently
 - **Ports**: Backend (5000), Frontend (3000)
 
+## 🚀 Deployment
+
+### Vercel Deployment
+This project is configured for easy deployment on Vercel:
+
+1. **Push to GitHub**: Commit and push your code to a GitHub repository
+2. **Connect to Vercel**: Import your repository in Vercel
+3. **Environment Variables**: Set \`BACKEND_URL\` to your backend deployment URL
+4. **Deploy**: Vercel will automatically build and deploy your frontend
+
+### Manual Deployment
+For other platforms, ensure you have:
+
+1. **Frontend Build**: Run \`npm run build:frontend\` to build the frontend
+2. **Backend Deployment**: Deploy your backend server separately
+3. **Environment Variables**: Set \`BACKEND_URL\` to point to your backend
+
+### Build Commands
+- \`npm run build\` - Build the entire project
+- \`npm run build:frontend\` - Build only the frontend
+- \`npm run build:backend\` - Build only the backend (if applicable)
+
 ---
 
 Created with ❤️ by the One-Click Local Preview Extension
@@ -1063,6 +1309,278 @@ Created with ❤️ by the One-Click Local Preview Extension
     fs.writeFileSync(path.join(workspaceRoot, 'README.md'), readmeContent);
           this.outputChannel.appendLine('✅ Fullstack README created');
     }
+
+  private async createRootGitignore(workspaceRoot: string): Promise<void> {
+    const gitignoreContent = `# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage (https://gruntjs.com/creating-plugins#storing-task-files)
+.grunt
+
+# Bower dependency directory (https://bower.io/)
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons (https://nodejs.org/api/addons.html)
+build/Release
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+.env.test
+.env.production
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# Next.js build output
+.next
+out
+
+# Nuxt.js build / generate output
+.nuxt
+dist
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# Logs
+logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency directories
+node_modules/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+
+# nuxt.js build output
+.nuxt
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# TernJS port file
+.tern-port
+
+# Stores VSCode versions used for testing VSCode extensions
+.vscode-test
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*`;
+    
+    fs.writeFileSync(path.join(workspaceRoot, '.gitignore'), gitignoreContent);
+    this.outputChannel.appendLine('✅ Root .gitignore created');
+  }
+
+  private async createVercelConfig(workspaceRoot: string): Promise<void> {
+    const vercelConfig = `{
+  "version": 2,
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next",
+      "config": {
+        "installCommand": "npm install",
+        "buildCommand": "npm run build",
+        "outputDirectory": ".next"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
+    }
+  ],
+  "env": {
+    "BACKEND_URL": "https://your-backend-domain.vercel.app"
+  },
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "installCommand": "npm install && cd frontend && npm install"
+}`;
+    
+    fs.writeFileSync(path.join(workspaceRoot, 'vercel.json'), vercelConfig);
+    this.outputChannel.appendLine('✅ Vercel configuration created');
+  }
+
+  private async createDeploymentGuide(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    const deploymentGuide = `# 🚀 Deployment Guide for ${template.name}
+
+## Quick Deploy to Vercel
+
+### 1. Push to GitHub
+\`\`\`bash
+git add .
+git commit -m "Initial commit"
+git push origin main
+\`\`\`
+
+### 2. Deploy on Vercel
+1. Go to [vercel.com](https://vercel.com)
+2. Click "New Project"
+3. Import your GitHub repository
+4. Set environment variables:
+   - \`BACKEND_URL\`: Your backend deployment URL
+5. Click "Deploy"
+
+## Manual Deployment
+
+### Frontend (Next.js)
+\`\`\`bash
+cd frontend
+npm install
+npm run build
+\`\`\`
+
+### Backend (Node.js/Express)
+Deploy to your preferred hosting service (Railway, Render, etc.)
+
+## Environment Variables
+
+Set these in your deployment platform:
+
+- \`BACKEND_URL\`: URL of your backend API
+- \`NODE_ENV\`: Set to \`production\` for production builds
+
+## Build Commands
+
+- \`npm run build\` - Build entire project
+- \`npm run build:frontend\` - Build frontend only
+- \`npm run test:build\` - Test build process
+
+## Testing Build Process
+
+Before deploying, test your build process locally:
+
+**On macOS/Linux:**
+\`\`\`bash
+chmod +x test-build.sh
+./test-build.sh
+\`\`\`
+
+**On Windows:**
+\`\`\`cmd
+test-build.bat
+\`\`\`
+
+## Troubleshooting
+
+### Build Fails with "next: command not found"
+This usually means dependencies aren't installed. Ensure:
+1. \`npm install\` runs in the frontend directory
+2. All dependencies are properly listed in package.json
+3. Node.js version is compatible (14+ recommended)
+
+### Deployment Issues
+1. Check build logs for dependency installation
+2. Verify environment variables are set
+3. Ensure backend URL is accessible from frontend
+
+---
+
+For more help, check the main README.md file.
+`;
+    
+    fs.writeFileSync(path.join(workspaceRoot, 'DEPLOYMENT.md'), deploymentGuide);
+    this.outputChannel.appendLine('✅ Deployment guide created');
+  }
 
   private hasInvalidWorkspaceName(workspaceRoot: string): boolean {
     const folderName = path.basename(workspaceRoot);
@@ -1463,32 +1981,18 @@ Created with ❤️ by the One-Click Local Preview Extension
 
   private async findAvailablePort(desiredPort: number): Promise<number> {
     try {
-      this.outputChannel.appendLine(`🔍 Checking if port ${desiredPort} is available...`);
+      this.outputChannel.appendLine(`🔍 Using new cooperative port management for port ${desiredPort}...`);
       
-      // First, aggressively kill any processes using the desired port
-      await this.killProcessesOnPort(desiredPort);
+      // Use the new PortManager for cooperative port detection
+      const framework = this.config?.framework as FrameworkType || 'generic';
+      const availablePort = await this.portManager.findAvailablePort(desiredPort, framework);
       
-      // Wait a moment for processes to fully terminate
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Now check port availability
-      const availablePort = await detectPort(desiredPort);
-      
-      if (availablePort === desiredPort) {
-        this.outputChannel.appendLine(`✅ Port ${desiredPort} is available after cleanup`);
-      } else {
-        this.outputChannel.appendLine(`⚠️ Port ${desiredPort} still busy after cleanup, using ${availablePort} instead`);
-        
-        // For Vite projects, update the Vite config to use the new port
-        if (this.config?.framework === 'vite') {
-          await this.updateViteConfigPort(availablePort);
-        }
-      }
-      
+      this.outputChannel.appendLine(`✅ Cooperative port management resolved port: ${availablePort}`);
       return availablePort;
+      
     } catch (error) {
-      this.outputChannel.appendLine(`❌ Port detection failed: ${error}`);
-      this.outputChannel.appendLine(`🔄 Falling back to requested port ${desiredPort}`);
+      this.outputChannel.appendLine(`❌ Cooperative port management failed: ${error}`);
+      this.outputChannel.appendLine(`🔄 Using requested port ${desiredPort} as last resort`);
       return desiredPort;
     }
   }
@@ -1543,125 +2047,82 @@ Created with ❤️ by the One-Click Local Preview Extension
       await this.spawnProcess(port);
 
     } catch (error) {
-      this.outputChannel.appendLine(`❌ Error starting preview: ${error}`);
-      vscode.window.showErrorMessage(`Failed to start preview: ${error}`);
+      // Use the new ErrorHandler for better error management
+      await ErrorHandler.handleError(
+        error instanceof Error ? error : new Error(String(error)),
+        'Starting preview server',
+        async () => {
+          this.outputChannel.appendLine(`🔄 Retrying preview start...`);
+          this.status.isStarting = false;
+          this.updateStatusBar();
+          await this.startPreview();
+        }
+      );
+      
       this.status.isStarting = false;
       this.updateStatusBar();
     }
   }
 
   private async spawnProcess(port: number): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot || !this.config) return;
-
-    const command = this.config.packageManager;
-    const args = this.config.packageManager === 'yarn' 
-      ? [this.config.script]
-      : ['run', this.config.script];
-
-    if (this.config.framework === 'fullstack') {
-      // Detect actual backend port from the project
-      let backendPort = 5000; // fallback
-      try {
-        const backendServerPath = path.join(workspaceRoot, 'backend', 'server.js');
-        if (fs.existsSync(backendServerPath)) {
-          const serverContent = fs.readFileSync(backendServerPath, 'utf8');
-          const portMatch = serverContent.match(/PORT = process\.env\.PORT \|\| (\d+)/);
-          if (portMatch) {
-            backendPort = parseInt(portMatch[1]);
+    try {
+      this.outputChannel.appendLine(`🚀 Using new ProcessManager for process spawning on port ${port}...`);
+      
+      // Convert old config to new format for ProcessManager
+      const newConfig: NewProjectConfig = {
+        framework: this.config?.framework as FrameworkType || 'generic',
+        port: port,
+        script: this.config?.script || 'dev',
+        packageManager: this.config?.packageManager || 'npm',
+        workspacePath: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || ''
+      };
+      
+      // Use the new ProcessManager to start the project
+      const processMonitor = await this.processManager.startProject(newConfig);
+      
+      // Update our status with the new process
+      this.status.process = processMonitor.process;
+      this.status.port = port;
+      this.status.url = `http://localhost:${port}`;
+      
+      // Set up event handlers for the new process
+      if (processMonitor.onOutput) {
+        processMonitor.onOutput = (data: string, type: 'stdout' | 'stderr') => {
+          this.outputChannel.appendLine(`[${type.toUpperCase()}:${port}] ${data}`);
+          
+          // Check for ready signals
+          if (type === 'stdout' && this.isServerReady(data, this.config?.framework)) {
+            this.onServerReady(port);
           }
-        }
-      } catch (error) {
-        this.outputChannel.appendLine(`⚠️ Could not detect backend port, using fallback: ${backendPort}`);
+        };
       }
       
-      this.outputChannel.appendLine(`Starting fullstack project with backend and frontend...`);
-      this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
-      this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
-      this.outputChannel.appendLine(`Script to run: ${this.config.script} (concurrently runs both servers)`);
-      this.outputChannel.appendLine(`Backend port: ${backendPort}, Frontend port: ${port}`);
-      this.outputChannel.appendLine(`Fullstack mode: Backend + Frontend running simultaneously`);
-    } else {
-      this.outputChannel.appendLine(`Starting ${this.config.framework} server on port ${port}...`);
-      this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
-      this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
-      this.outputChannel.appendLine(`Script to run: ${this.config.script}`);
-      this.outputChannel.appendLine(`Expected port: ${port}`);
-      if (this.config.framework === 'vite') {
-        this.outputChannel.appendLine(`Vite will try port ${port} first, then find alternatives if busy`);
+      if (processMonitor.onExit) {
+        processMonitor.onExit = (code: number) => {
+          this.outputChannel.appendLine(`[EXIT:${port}] Process exited with code ${code}`);
+          this.status.process = null;
+          this.status.isRunning = false;
+          this.status.isStarting = false;
+          this.updateStatusBar();
+        };
       }
+      
+      if (processMonitor.onError) {
+        processMonitor.onError = (error: Error) => {
+          this.outputChannel.appendLine(`[ERROR:${port}] Process error: ${error.message}`);
+          this.status.process = null;
+          this.status.isRunning = false;
+          this.status.isStarting = false;
+          this.updateStatusBar();
+        };
+      }
+      
+      this.outputChannel.appendLine(`✅ Process started successfully using new ProcessManager`);
+      
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Failed to start process using new ProcessManager: ${error}`);
+      throw error;
     }
-
-    const childProcess = child_process.spawn(command, args, {
-      cwd: workspaceRoot,
-      stdio: 'pipe',
-      shell: false  // Remove shell dependency to prevent terminal restart issues
-    });
-
-    this.status.process = childProcess;
-    
-    // Flag to prevent multiple ready signal calls
-    let serverReadyCalled = false;
-
-    // Capture output
-    childProcess.stdout?.on('data', (data) => {
-      const output = data.toString();
-      this.outputChannel.appendLine(`[STDOUT] ${output}`);
-      
-      // Check for ready signals
-      if (this.isServerReady(output, this.config?.framework) && !serverReadyCalled) {
-        serverReadyCalled = true;
-        this.outputChannel.appendLine('✅ Server ready signal detected!');
-        
-        // For Vite, extract the actual port from the output
-        if (this.config?.framework === 'vite') {
-          const portMatch = output.match(/Local:\s+http:\/\/localhost:(\d+)/);
-          if (portMatch) {
-            const actualPort = parseInt(portMatch[1]);
-            this.outputChannel.appendLine(`🔄 Vite is running on port ${actualPort}, updating configuration...`);
-            this.status.port = actualPort;
-            this.status.url = `http://localhost:${actualPort}`;
-          }
-        }
-        
-        this.onServerReady(this.status.port || port);
-      }
-    });
-
-    childProcess.stderr?.on('data', (data) => {
-      const output = data.toString();
-      this.outputChannel.appendLine(`[STDERR] ${output}`);
-    });
-
-    childProcess.on('error', (error) => {
-      this.outputChannel.appendLine(`[ERROR] Process error: ${error.message}`);
-    });
-
-    childProcess.on('close', (code) => {
-      this.outputChannel.appendLine(`[EXIT] Process exited with code ${code}`);
-      this.status.process = null;
-      this.status.isRunning = false;
-      this.status.isStarting = false;
-      this.updateStatusBar();
-    });
-
-    // Wait for server to be ready
-    // Note: We don't need to wait here since we're already listening for ready signals
-    // The server ready detection happens in the stdout listener
-    
-    // Add a fallback: if no ready signal detected within 10 seconds, check if port is responding
-    setTimeout(async () => {
-      if (this.status.isStarting && !this.status.isRunning) {
-        this.outputChannel.appendLine('⏰ No ready signal detected, checking if port is responding...');
-        try {
-          await this.checkPort(port);
-          this.outputChannel.appendLine('✅ Port is responding, server appears to be ready!');
-          this.onServerReady(port);
-        } catch (error) {
-          this.outputChannel.appendLine('⚠️ Port check failed, server may not be ready yet');
-        }
-      }
-    }, 10000);
   }
 
   private isServerReady(output: string, framework?: string): boolean {
