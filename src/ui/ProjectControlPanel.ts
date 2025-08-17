@@ -380,6 +380,32 @@ export class ProjectControlPanel {
                     .btn.deployment-diagnostic:hover {
                         background: #1976d2;
                     }
+                    
+                    /* Secondary Deployment Diagnostic Button */
+                    .btn.deployment-diagnostic.secondary {
+                        background: transparent;
+                        border: none;
+                        color: #2196f3;
+                        box-shadow: none;
+                    }
+                    
+                    .btn.deployment-diagnostic.secondary:hover {
+                        background: rgba(33, 150, 243, 0.1);
+                        color: #1976d2;
+                    }
+                    
+                    /* Secondary Button Style */
+                    .btn.secondary {
+                        background: transparent;
+                        border: none;
+                        color: #757575;
+                        box-shadow: none;
+                    }
+                    
+                    .btn.secondary:hover {
+                        background: rgba(117, 117, 117, 0.1);
+                        color: #616161;
+                    }
 
                     /* Responsive Design */
                     @media (max-width: 768px) {
@@ -472,11 +498,12 @@ export class ProjectControlPanel {
                                     </svg>
                                 </div>
                             </button>
-                            <button class="btn deployment-diagnostic" id="deployment-diagnostic-btn">
-                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            <button class="btn deployment-diagnostic secondary" id="deployment-diagnostic-btn">
+                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 6v12M8 14l4 4 4-4"/>
                                 </svg>
-                                <span class="btn-text">Deployment Readiness</span>
+                                <span class="btn-text">Check deployment readiness</span>
                                 <div class="btn-spinner" style="display: none;">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <circle cx="12" cy="12" r="10" stroke-dasharray="31.416" stroke-dashoffset="31.416">
@@ -503,14 +530,14 @@ export class ProjectControlPanel {
                             <!-- Results will be populated here -->
                         </div>
                         <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #3e3e42;">
-                            <button id="copy-diagnostic-btn" class="btn" style="background: #4caf50; border-color: #388e3c; margin-right: 8px;">
+                            <button id="copy-diagnostic-btn" class="btn" style="background: #4caf50; border-color: #388e3c; margin-right: 8px; margin-bottom: 8px;">
                                 <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
                                 </svg>
                                 <span class="btn-text">Copy Report</span>
                             </button>
-                            <button id="hide-diagnostic-btn" class="btn" style="background: #757575; border-color: #616161;">
+                            <button id="hide-diagnostic-btn" class="btn secondary" style="background: transparent; border: none; color: #757575;">
                                 Hide Results
                             </button>
                         </div>
@@ -720,9 +747,24 @@ export class ProjectControlPanel {
                     // Copy diagnostic report to clipboard
                     document.getElementById('copy-diagnostic-btn').addEventListener('click', function() {
                         const contentDiv = document.getElementById('diagnostic-content');
+                        const copyBtn = document.getElementById('copy-diagnostic-btn');
+                        const btnText = copyBtn.querySelector('.btn-text');
+                        
                         if (contentDiv) {
                             const text = contentDiv.innerText;
                             navigator.clipboard.writeText(text).then(() => {
+                                // Change button text to "Copied"
+                                if (btnText) {
+                                    btnText.textContent = 'Copied';
+                                }
+                                
+                                // Reset button text after 2 seconds
+                                setTimeout(() => {
+                                    if (btnText) {
+                                        btnText.textContent = 'Copy Report';
+                                    }
+                                }, 2000);
+                                
                                 vscode.postMessage({ command: 'showNotification', message: 'Diagnostic report copied to clipboard!' });
                             }).catch(() => {
                                 vscode.postMessage({ command: 'showNotification', message: 'Failed to copy to clipboard' });
