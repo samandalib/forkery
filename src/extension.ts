@@ -1,3 +1,10 @@
+/**
+ * 🚀 Pistachio Vibe Extension - Main Extension File
+ * 
+ * @author Pistachio Vibe Team
+ * @version 1.0.24-DeploymentDiagnostic
+ */
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -23,6 +30,7 @@ interface PreviewStatus {
   port: number | null;
   url: string | null;
   process: child_process.ChildProcess | null;
+  terminal?: vscode.Terminal;
 }
 
 interface ProjectTemplate {
@@ -43,12 +51,13 @@ class PreviewManager {
   private uiManager: UIManager;
   private isCreatingProject: boolean = false;
 
+
   // Project templates for quick start
   private projectTemplates: ProjectTemplate[] = [
     {
       name: 'Next.js App',
-      description: 'Full-stack React framework with file-based routing (requires lowercase workspace name)',
-      command: 'npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes --use-npm',
+      description: 'Full-stack React framework with file-based routing (creates in clean directory)',
+      command: 'npx create-next-app@latest my-nextjs-app --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes --use-npm',
       port: 3000,
       dependencies: ['next', 'react', 'react-dom']
     },
@@ -122,130 +131,833 @@ class PreviewManager {
     // Initialize the status bar after workspace is ready
     console.log('PreviewManager: Initializing...');
     
-    try {
-      // Try to detect existing project configuration
-      if (vscode.workspace.workspaceFolders?.[0]) {
-        this.outputChannel.appendLine('🔍 Detecting existing project configuration...');
-        this.config = await this.detectProjectConfig();
-        this.outputChannel.appendLine(`✅ Project detected: ${this.config.framework} on port ${this.config.port}`);
-      }
-    } catch (error) {
-      this.outputChannel.appendLine(`ℹ️ No existing project detected: ${error}`);
-    }
-    
+    // Initialize the status bar
     this.updateStatusBar();
     
-    // Show the appropriate UI based on current state
-    this.uiManager.showAppropriateUI();
-    
-    console.log('PreviewManager: Initialization complete');
+    // Check if we have a workspace
+    if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+      console.log('PreviewManager: Workspace found, detecting project configuration');
+        this.outputChannel.appendLine('🔍 Detecting existing project configuration...');
+      
+      try {
+        this.config = await this.detectProjectConfig();
+        this.outputChannel.appendLine('✅ Project configuration detected');
+        this.updateStatusBar();
+    } catch (error) {
+      this.outputChannel.appendLine(`ℹ️ No existing project detected: ${error}`);
+      }
+    }
   }
 
-  private registerViewProviders(): void {
-    console.log('PreviewManager: Registering view providers...');
-    
-    // Register the template view provider
-    const templateViewProvider = new TemplateViewProvider(TemplatePanel.getInstance(), this.extensionUri);
-    console.log('PreviewManager: TemplateViewProvider created:', templateViewProvider);
-    
-    vscode.window.registerWebviewViewProvider(
-      TemplateViewProvider.viewType,
-      templateViewProvider
-    );
-    console.log('PreviewManager: TemplateViewProvider registered with type:', TemplateViewProvider.viewType);
+  private async detectProjectConfig(): Promise<ProjectConfig> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      throw new Error('No workspace folder found');
+    }
 
-    // Register the project control view provider
-    const projectControlViewProvider = new ProjectControlViewProvider(ProjectControlPanel.getInstance(), this.extensionUri);
-    console.log('PreviewManager: ProjectControlViewProvider created:', projectControlViewProvider);
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      throw new Error('No package.json found in workspace');
+    }
+
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+    const scripts = packageJson.scripts || {};
+    const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+
+    // Detect framework based on dependencies and scripts
+    let framework = 'generic';
+    let defaultPort = 3000;
+    let defaultScript = 'dev';
+
+    if (dependencies.next) {
+      framework = 'next';
+      defaultPort = 3000;
+      defaultScript = 'dev';
+    } else if (dependencies.vite) {
+      framework = 'vite';
+      defaultPort = 5173;
+      defaultScript = 'dev';
+    } else if (dependencies.express && (dependencies.react || dependencies['react-dom'])) {
+      framework = 'fullstack';
+      defaultPort = 3000;
+      defaultScript = 'dev';
+    } else if (dependencies['live-server']) {
+      framework = 'static';
+      defaultPort = 8080;
+      defaultScript = 'start';
+    }
+
+    // Smart script detection - find the best available script
+    let script = this.findBestAvailableScript(scripts, defaultScript, framework);
     
-    vscode.window.registerWebviewViewProvider(
-      ProjectControlViewProvider.viewType,
-      projectControlViewProvider
-    );
-    console.log('PreviewManager: ProjectControlViewProvider registered with type:', ProjectControlViewProvider.viewType);
-    
-    console.log('PreviewManager: All view providers registered successfully');
+    if (!script) {
+      // No suitable script found, provide helpful error
+      const availableScripts = Object.keys(scripts);
+      if (availableScripts.length === 0) {
+        throw new Error(`No npm scripts found in package.json. Please add a script to start your project (e.g., "dev", "start", or "serve").`);
+      } else {
+        throw new Error(`No suitable start script found. Available scripts: ${availableScripts.join(', ')}. Please add a "dev" or "start" script to your package.json.`);
+      }
+    }
+
+    // Check if there's a custom port in scripts
+    let port = defaultPort;
+    if (scripts[script]) {
+      const portMatch = scripts[script].match(/--port\s+(\d+)/);
+      if (portMatch) {
+        port = parseInt(portMatch[1]);
+      }
+    }
+
+    return {
+      framework,
+      port,
+      script: script,
+      packageManager: 'npm'
+    };
   }
 
-  private registerCommands(): void {
-    // These commands are already declared in package.json, so they should work
-    // But we need to ensure they're properly bound to the instance methods
-    vscode.commands.registerCommand('pistachio-vibe.run', () => {
-      this.outputChannel.appendLine('🎯 Preview: Run command executed');
-      this.startPreview();
-    });
-    vscode.commands.registerCommand('pistachio-vibe.stop', () => {
-      this.outputChannel.appendLine('🛑 Preview: Stop command executed');
-      this.stopPreview();
-    });
-    vscode.commands.registerCommand('pistachio-vibe.restart', () => {
-      this.outputChannel.appendLine('🔄 Preview: Restart command executed');
-      this.restartPreview();
-    });
-    vscode.commands.registerCommand('pistachio-vibe.createProject', () => {
-      this.outputChannel.appendLine('🚀 Preview: Create Project command executed');
-      this.createNewProject();
-    });
+  private findBestAvailableScript(scripts: any, defaultScript: string, framework: string): string | null {
+    // Priority order for scripts
+    const scriptPriority = [
+      defaultScript,           // First try the framework-specific default
+      'dev',                   // Common development script
+      'start',                 // Common start script
+      'serve',                 // Common serve script
+      'develop',               // Alternative dev script
+      'watch'                  // Watch mode script
+    ];
 
-    vscode.commands.registerCommand('pistachio-vibe.showUI', () => {
-      this.outputChannel.appendLine('🎨 Preview: Show UI command executed');
-      this.uiManager.showAppropriateUI();
-    });
+    // Check each priority script
+    for (const scriptName of scriptPriority) {
+      if (scripts[scriptName]) {
+        return scriptName;
+      }
+    }
 
-    vscode.commands.registerCommand('pistachio-vibe.showTemplates', () => {
-      this.outputChannel.appendLine('📋 Preview: Show Templates command executed');
-      this.uiManager.showTemplateSelection();
-    });
+    // If no priority scripts found, return the first available script
+    const availableScripts = Object.keys(scripts);
+    if (availableScripts.length > 0) {
+      // Log a warning about using non-standard script
+      console.warn(`Using non-standard script: ${availableScripts[0]} (recommended: add a "dev" or "start" script)`);
+      return availableScripts[0];
+    }
 
-    vscode.commands.registerCommand('pistachio-vibe.showProjectControl', () => {
-      this.outputChannel.appendLine('🎛️ Preview: Show Project Control command executed');
-      this.uiManager.showProjectControl();
+    return null;
+  }
+
+  private showScriptFixOptions(): void {
+    vscode.window.showInformationMessage(
+      'Would you like help fixing the npm scripts?',
+      'Show Available Scripts',
+      'Create Basic Scripts',
+      'Cancel'
+    ).then(selection => {
+      if (selection === 'Show Available Scripts') {
+        this.showAvailableScripts();
+      } else if (selection === 'Create Basic Scripts') {
+        this.createBasicScripts();
+      }
     });
   }
 
-  private async createNewProject(): Promise<void> {
-    // Prevent duplicate execution
-    if (this.isCreatingProject) {
-      this.outputChannel.appendLine('⚠️ Project creation already in progress, ignoring duplicate command');
+  private showAvailableScripts(): void {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) return;
+
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      const scripts = packageJson.scripts || {};
+      const availableScripts = Object.keys(scripts);
+
+      if (availableScripts.length === 0) {
+        vscode.window.showInformationMessage('No npm scripts found in package.json');
+      } else {
+        vscode.window.showInformationMessage(
+          `Available scripts: ${availableScripts.join(', ')}`,
+          'Copy Scripts'
+        ).then(action => {
+          if (action === 'Copy Scripts') {
+            vscode.env.clipboard.writeText(JSON.stringify(scripts, null, 2));
+            vscode.window.showInformationMessage('Scripts copied to clipboard');
+          }
+        });
+      }
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to read package.json: ${error}`);
+    }
+  }
+
+  private async createBasicScripts(): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) return;
+
+    const packageJsonPath = path.join(workspaceRoot, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) return;
+
+    try {
+      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+      const scripts = packageJson.scripts || {};
+      
+      // Detect framework and suggest appropriate scripts
+      const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
+      let suggestedScripts = {};
+
+      if (dependencies.next) {
+        suggestedScripts = {
+          dev: 'next dev',
+          build: 'next build',
+          start: 'next start'
+        };
+      } else if (dependencies.vite) {
+        suggestedScripts = {
+          dev: 'vite',
+          build: 'vite build',
+          preview: 'vite preview'
+        };
+      } else if (dependencies.express) {
+        suggestedScripts = {
+          start: 'node server.js',
+          dev: 'nodemon server.js'
+        };
+      } else {
+        // Generic scripts
+        suggestedScripts = {
+          start: 'node index.js',
+          dev: 'node --watch index.js'
+        };
+      }
+
+      // Merge with existing scripts
+      const newScripts = { ...suggestedScripts, ...scripts };
+      
+      // Update package.json
+      packageJson.scripts = newScripts;
+      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+
+      vscode.window.showInformationMessage(
+        `Added basic scripts to package.json: ${Object.keys(suggestedScripts).join(', ')}`,
+        'Restart Preview'
+      ).then(action => {
+        if (action === 'Restart Preview') {
+          this.startPreview();
+        }
+      });
+
+    } catch (error) {
+      vscode.window.showErrorMessage(`Failed to create scripts: ${error}`);
+    }
+  }
+
+  private async findAvailablePort(desiredPort: number): Promise<number> {
+    try {
+      // Kill existing processes on the desired port
+      await this.killExistingProcesses(desiredPort);
+      
+      // Wait for cleanup
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Detect available port
+      const availablePort = await detectPort(desiredPort);
+      
+      if (availablePort === desiredPort) {
+        this.outputChannel.appendLine(`✅ Port ${desiredPort} is available after cleanup`);
+      } else {
+        this.outputChannel.appendLine(`⚠️ Port ${desiredPort} still busy, using ${availablePort} instead`);
+      }
+      
+      return availablePort;
+    } catch (error) {
+      return desiredPort; // Fallback
+    }
+  }
+
+  private async killExistingProcesses(port: number): Promise<void> {
+    try {
+      // Kill processes on specific port
+      await this.killProcessesOnPort(port);
+      
+      // Kill all node processes (nuclear option)
+      await this.killAllNodeProcesses();
+    } catch (error) {
+      this.outputChannel.appendLine(`⚠️ Error killing processes: ${error}`);
+    }
+  }
+
+  private async killProcessesOnPort(port: number): Promise<void> {
+    this.outputChannel.appendLine(`🔍 Looking for processes on port ${port}...`);
+    
+    return new Promise((resolve) => {
+      if (process.platform === 'win32') {
+        // Windows approach
+        const childProcess = child_process.exec(`netstat -ano | findstr :${port}`, (error, stdout, stderr) => {
+          if (error) {
+            this.outputChannel.appendLine(`⚠️ Error checking port ${port}: ${error.message}`);
+            resolve();
+            return;
+          }
+          
+          if (stdout.trim()) {
+            const lines = stdout.trim().split('\n');
+            for (const line of lines) {
+              const pidMatch = line.match(/\s+(\d+)\s*$/);
+              if (pidMatch) {
+                const pid = parseInt(pidMatch[1]);
+                try {
+                  child_process.exec(`taskkill /F /PID ${pid}`, (killError) => {
+                    if (killError) {
+                      this.outputChannel.appendLine(`⚠️ Could not kill process ${pid}: ${killError.message}`);
+                    } else {
+                      this.outputChannel.appendLine(`✅ Killed process ${pid} on port ${port}`);
+                    }
+                  });
+                } catch (error) {
+                  this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
+                }
+              }
+            }
+          } else {
+            this.outputChannel.appendLine(`ℹ️ No processes found on port ${port}`);
+          }
+          resolve();
+        });
+      } else {
+        // macOS/Linux approach
+        const childProcess = child_process.exec(`lsof -ti :${port}`, (error, stdout, stderr) => {
+          if (error) {
+            this.outputChannel.appendLine(`ℹ️ No processes found on port ${port} (lsof exit code: ${error.code})`);
+            resolve();
+            return;
+          }
+          
+          if (stdout.trim()) {
+            const pids = stdout.trim().split('\n');
+            for (const pidStr of pids) {
+              const pid = parseInt(pidStr.trim());
+              if (pid && !isNaN(pid)) {
+                try {
+                  process.kill(pid, 'SIGTERM');
+                  this.outputChannel.appendLine(`✅ Sent SIGTERM to process ${pid} on port ${port}`);
+                  
+                  // Force kill after 3 seconds if still alive
+                  setTimeout(() => {
+                    try {
+                      process.kill(pid, 'SIGKILL');
+                      this.outputChannel.appendLine(`🔨 Force killed process ${pid}`);
+                    } catch (killError) {
+                      // Process already dead, which is good
+                    }
+                  }, 3000);
+                } catch (error) {
+                  this.outputChannel.appendLine(`⚠️ Could not kill process ${pid}: ${error}`);
+                }
+              }
+            }
+          } else {
+            this.outputChannel.appendLine(`ℹ️ No processes found on port ${port}`);
+          }
+          resolve();
+        });
+      }
+    });
+  }
+
+  private async killAllNodeProcesses(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const command = process.platform === 'win32' ? 'taskkill' : 'pkill';
+      const args = process.platform === 'win32' 
+        ? ['/f', '/im', 'node.exe']
+        : ['-f', 'node'];
+
+      const childProcess = child_process.spawn(command, args, { 
+        shell: false,
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true
+      });
+      
+      childProcess.on('close', (code) => {
+        if (code === 0) {
+          this.outputChannel.appendLine('✅ Killed all node processes');
+        } else {
+          this.outputChannel.appendLine('ℹ️ No node processes found or already killed');
+        }
+        resolve();
+      });
+
+      childProcess.on('error', (error) => {
+        this.outputChannel.appendLine(`⚠️ Error killing node processes: ${error}`);
+        resolve(); // Don't fail on error
+      });
+    });
+  }
+
+  private async spawnProcess(script: string, port: number, workspaceRoot: string): Promise<child_process.ChildProcess> {
+    return new Promise((resolve, reject) => {
+      // FIXED: Run npm scripts properly instead of trying to run script names directly
+      const command = 'npm';
+      const args = ['run', script];
+
+      this.outputChannel.appendLine(`🚀 Starting process: npm run ${script}`);
+      this.outputChannel.appendLine(`📁 Working directory: ${workspaceRoot}`);
+      this.outputChannel.appendLine(`🎯 Expected port: ${port}`);
+
+      // Use exec instead of spawn to avoid terminal interference
+      const childProcess = child_process.exec(`${command} ${args.join(' ')}`, {
+        cwd: workspaceRoot,
+        windowsHide: true,
+        maxBuffer: 1024 * 1024 // 1MB buffer
+      });
+
+      let output = '';
+      let errorOutput = '';
+
+      // Handle process cleanup on extension deactivation
+      this.contextKey.subscriptions.push({
+        dispose: () => {
+          if (childProcess && !childProcess.killed) {
+            try {
+              childProcess.kill('SIGTERM');
+            } catch (error) {
+              this.outputChannel.appendLine(`⚠️ Error during cleanup: ${error}`);
+            }
+          }
+        }
+      });
+
+      if (childProcess.stdout) {
+        childProcess.stdout.on('data', (data) => {
+          const dataStr = data.toString();
+          output += dataStr;
+          this.outputChannel.appendLine(`[STDOUT:${port}] ${dataStr.trim()}`);
+          
+          // Check if server is ready (only if not already ready)
+          if (!this.status.isRunning && this.isServerReady(dataStr, this.config?.framework || 'generic')) {
+            this.outputChannel.appendLine('✅ Server ready signal detected!');
+            this.onServerReady(port);
+          }
+        });
+      }
+
+      if (childProcess.stderr) {
+        childProcess.stderr.on('data', (data) => {
+          const dataStr = data.toString();
+          errorOutput += dataStr;
+          this.outputChannel.appendLine(`[STDERR:${port}] ${dataStr.trim()}`);
+        });
+      }
+
+      childProcess.on('error', (error) => {
+        this.outputChannel.appendLine(`❌ Process error: ${error}`);
+        this.outputChannel.appendLine(`💡 This usually means the npm script '${script}' failed to start or npm is not available`);
+        reject(error);
+      });
+
+      childProcess.on('close', (code) => {
+        this.outputChannel.appendLine(`[EXIT:${port}] Process exited with code ${code}`);
+        if (code !== 0) {
+          this.outputChannel.appendLine(`⚠️ Process exited with non-zero code: ${code}`);
+          if (code === 127) {
+            this.outputChannel.appendLine(`💡 Exit code 127 usually means 'command not found' - this should now be fixed with npm run`);
+          } else if (code === 1) {
+            this.outputChannel.appendLine(`💡 Exit code 1 usually means the script ran but encountered an error - check your project configuration`);
+          }
+        }
+      });
+
+      // Wait a bit for the process to start
+      setTimeout(() => {
+        resolve(childProcess);
+      }, 1000);
+    });
+  }
+
+  private isServerReady(output: string, framework: string): boolean {
+    const lowerOutput = output.toLowerCase();
+    
+    switch (framework) {
+      case 'next':
+        return lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('localhost');
+      case 'vite':
+        return lowerOutput.includes('ready') || lowerOutput.includes('localhost') || lowerOutput.includes('server running');
+      case 'fullstack':
+        return lowerOutput.includes('server running') || lowerOutput.includes('listening') || lowerOutput.includes('localhost');
+      case 'static':
+        return lowerOutput.includes('serving') || lowerOutput.includes('localhost') || lowerOutput.includes('ready');
+      default:
+        return lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('localhost') || lowerOutput.includes('listening');
+    }
+  }
+
+  private onServerReady(port: number): void {
+    // FIXED: Prevent multiple calls to onServerReady
+    if (this.status.isRunning) {
+      this.outputChannel.appendLine(`⚠️ Server already running, ignoring duplicate ready signal`);
       return;
     }
     
-    this.isCreatingProject = true;
+    this.status.isRunning = true;
+    this.status.isStarting = false;
+    this.status.port = port;
+    this.status.url = `http://localhost:${port}`;
     
-    try {
-      // Check if workspace is empty
-      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      if (!workspaceRoot) {
-        vscode.window.showErrorMessage('No workspace folder found');
+    // Update context key for command palette
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', true);
+    
+    // Update UI manager with project status
+    this.uiManager.updateProjectStatus({
+      isRunning: true,
+      port: port,
+      url: `http://localhost:${port}`,
+      framework: this.config?.framework || 'unknown',
+      projectName: vscode.workspace.workspaceFolders?.[0]?.name || 'Project'
+    });
+    
+    this.updateStatusBar();
+    this.openPreview();
+    
+    this.outputChannel.appendLine(`✅ Preview server ready on http://localhost:${port}`);
+    
+    // Show notification with restart instructions
+    vscode.window.showInformationMessage(
+      `Preview started on port ${port}`,
+      'Restart Preview'
+    ).then(selection => {
+      if (selection === 'Restart Preview') {
+        this.restartPreview();
+      }
+    });
+  }
+
+  private async restartPreview(): Promise<void> {
+    this.outputChannel.appendLine('🔄 Restarting preview...');
+    await this.stopPreview();
+    // Small delay to ensure cleanup
+    setTimeout(() => {
+      this.startPreview();
+    }, 1000);
+  }
+
+
+
+  private async openPreview(): Promise<void> {
+    if (!this.status.url) return;
+    
+    const config = vscode.workspace.getConfiguration('preview');
+    const browserMode = config.get('browserMode', 'in-editor');
+    this.outputChannel.appendLine(`🌐 Opening preview in ${browserMode} mode: ${this.status.url}`);
+    
+    if (browserMode === 'in-editor') {
+      try {
+        // Try to open in Simple Browser first
+        await vscode.commands.executeCommand('simpleBrowser.show', this.status.url);
+        this.outputChannel.appendLine('✅ Preview opened in Simple Browser');
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Simple Browser failed: ${error}`);
+        this.outputChannel.appendLine('🔄 Falling back to external browser...');
+        // Fallback to external browser
+        try {
+          await vscode.env.openExternal(vscode.Uri.parse(this.status.url));
+          this.outputChannel.appendLine('✅ Preview opened in external browser');
+        } catch (externalError) {
+          this.outputChannel.appendLine(`❌ External browser also failed: ${externalError}`);
+          vscode.window.showErrorMessage(`Failed to open preview. Please manually navigate to: ${this.status.url}`);
+        }
+      }
+    } else {
+      // Open in external browser
+      try {
+        await vscode.env.openExternal(vscode.Uri.parse(this.status.url));
+        this.outputChannel.appendLine('✅ Preview opened in external browser');
+      } catch (error) {
+        this.outputChannel.appendLine(`❌ External browser failed: ${error}`);
+        vscode.window.showErrorMessage(`Failed to open preview. Please manually navigate to: ${this.status.url}`);
+      }
+    }
+  }
+
+
+
+
+
+  private updateStatusBar(): void {
+    if (this.status.isRunning) {
+      this.statusBarItem.text = `$(globe) Preview: ${this.status.port}`;
+      this.statusBarItem.tooltip = `Click to stop preview (running on port ${this.status.port})`;
+      this.statusBarItem.show();
+    } else if (this.status.isStarting) {
+      this.statusBarItem.text = `$(loading~spin) Starting...`;
+      this.statusBarItem.tooltip = 'Starting preview server...';
+      this.statusBarItem.show();
+    } else {
+      this.statusBarItem.text = '$(globe) Preview';
+      this.statusBarItem.tooltip = 'Click to start preview or create new project';
+      this.statusBarItem.show();
+    }
+  }
+
+  private async startPreview(): Promise<void> {
+    if (this.status.isRunning || this.status.isStarting) {
+      vscode.window.showInformationMessage('Preview is already running or starting');
+      return;
+    }
+    
+    // Try to detect project configuration if not already set
+    if (!this.config) {
+      this.outputChannel.appendLine('🔍 No configuration found, attempting to detect project...');
+      try {
+        this.config = await this.detectProjectConfig();
+        this.outputChannel.appendLine('✅ Project configuration detected');
+        this.updateStatusBar();
+      } catch (error) {
+        this.outputChannel.appendLine(`❌ Failed to detect project configuration: ${error}`);
+        vscode.window.showErrorMessage(`No project configuration found. Error: ${error}\n\nPlease ensure you have a package.json with appropriate scripts, or create a new project using the Templates panel.`);
         return;
       }
-
-    // Check if workspace already has content and offer cleanup
-    const files = fs.readdirSync(workspaceRoot);
-    const hasContent = files.some(file => 
-      !file.startsWith('.') && file !== '.git' && file !== 'node_modules'
-    );
-
-    if (hasContent) {
-      const action = await vscode.window.showWarningMessage(
-        'This workspace contains files that may conflict with new project creation. What would you like to do?',
-        'Clean Workspace', 'Create Anyway', 'Cancel'
-      );
-      
-      if (action === 'Clean Workspace') {
-        await this.cleanWorkspace(workspaceRoot);
-      } else if (action === 'Cancel') {
-        return;
-      }
-      // If "Create Anyway" is selected, continue with existing files
     }
 
-    // Show template selection
+    this.status.isStarting = true;
+    this.updateStatusBar();
+
+    try {
+      const port = await this.findAvailablePort(this.config.port);
+      
+      this.outputChannel.appendLine(`🚀 Starting preview...`);
+      this.outputChannel.appendLine(`🔍 Checking for existing processes...`);
+      this.outputChannel.appendLine(`📜 Using script: ${this.config.script}`);
+      
+      // Kill existing processes
+      await this.killExistingProcesses(port);
+      
+      // Check if terminal is available and use appropriate method
+      if (vscode.window.terminals.length > 0) {
+        this.outputChannel.appendLine(`ℹ️ Using terminal-based execution to avoid Pty Host interference`);
+        await this.startPreviewInTerminal(port);
+      } else {
+        this.outputChannel.appendLine(`ℹ️ Using process-based execution`);
+        const process = await this.spawnProcess(this.config.script, port, vscode.workspace.workspaceFolders![0].uri.fsPath);
+        this.status.process = process;
+        this.status.port = port;
+        this.status.url = `http://localhost:${port}`;
+      }
+      
+      this.outputChannel.appendLine(`✅ Preview server ready on http://localhost:${port}`);
+      
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Failed to start preview: ${error}`);
+      this.status.isStarting = false;
+      this.updateStatusBar();
+      
+      // Provide more helpful error messages
+      let errorMessage = `Failed to start preview: ${error}`;
+      
+      if (error instanceof Error && error.message.includes('No suitable start script found')) {
+        errorMessage = `Missing start script in package.json. Please add a "dev" or "start" script to run your project.`;
+      } else if (error instanceof Error && error.message.includes('command not found')) {
+        errorMessage = `Script "${this.config?.script}" not found in package.json. Please check your npm scripts configuration.`;
+      }
+      
+      vscode.window.showErrorMessage(errorMessage);
+      
+      // Show helpful action buttons
+      this.showScriptFixOptions();
+    }
+  }
+
+  private async startPreviewInTerminal(port: number): Promise<void> {
+    try {
+      // Create a new terminal for the preview
+      const terminal = vscode.window.createTerminal({
+        name: `Pistachio Preview - Port ${port}`,
+        cwd: vscode.workspace.workspaceFolders![0].uri.fsPath
+      });
+
+      // Show the terminal
+      terminal.show();
+
+      // Send the command to start the preview
+      const command = `npm run ${this.config!.script}`;
+      terminal.sendText(command);
+
+      this.outputChannel.appendLine(`🚀 Started preview in terminal: ${command}`);
+      this.outputChannel.appendLine(`📱 Terminal: ${terminal.name}`);
+
+      // Update status
+      this.status.port = port;
+      this.status.url = `http://localhost:${port}`;
+      this.status.isRunning = true;
+      this.status.isStarting = false;
+
+      // Store terminal reference for cleanup
+      this.status.terminal = terminal;
+
+      // Monitor terminal for output
+      this.monitorTerminalOutput(terminal, port);
+
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Failed to start preview in terminal: ${error}`);
+      throw error;
+    }
+  }
+
+  private monitorTerminalOutput(terminal: vscode.Terminal, port: number): void {
+    // Note: VS Code doesn't provide direct access to terminal output
+    // We'll use a polling approach to check if the server is ready
+    const checkInterval = setInterval(async () => {
+      try {
+        // Check if the port is actually listening
+        const isPortListening = await this.checkPortListening(port);
+        if (isPortListening && !this.status.isRunning) {
+          this.outputChannel.appendLine(`✅ Port ${port} is now listening - server ready!`);
+          this.onServerReady(port);
+          clearInterval(checkInterval);
+        }
+      } catch (error) {
+        // Continue checking
+      }
+    }, 2000); // Check every 2 seconds
+
+    // Clean up interval after 5 minutes
+    setTimeout(() => {
+      clearInterval(checkInterval);
+    }, 5 * 60 * 1000);
+  }
+
+  private async checkPortListening(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const net = require('net');
+      const socket = new net.Socket();
+      
+      socket.setTimeout(1000); // 1 second timeout
+      
+      socket.on('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+      
+      socket.on('timeout', () => {
+        socket.destroy();
+        resolve(false);
+      });
+      
+      socket.on('error', () => {
+        socket.destroy();
+        resolve(false);
+      });
+      
+      socket.connect(port, 'localhost');
+    });
+  }
+
+  private async stopPreview(): Promise<void> {
+    if (!this.status.isRunning && !this.status.isStarting) {
+      vscode.window.showInformationMessage('No preview is running');
+      return;
+    }
+
+    this.outputChannel.appendLine('🛑 Stopping preview...');
+
+    // Store the current port for process killing
+    const currentPort = this.status.port;
+
+    // Stop process if running
+    if (this.status.process) {
+      try {
+        this.outputChannel.appendLine('🔄 Terminating process...');
+        // Try graceful shutdown first
+        this.status.process.kill('SIGTERM');
+        
+        // Wait a bit for graceful shutdown
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Force kill if still running
+        if (!this.status.process.killed) {
+          this.outputChannel.appendLine('🔨 Force killing process...');
+          this.status.process.kill('SIGKILL');
+        }
+        
+        this.status.process = null;
+        this.outputChannel.appendLine('✅ Process terminated');
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Error stopping process: ${error}`);
+        // Force cleanup
+        this.status.process = null;
+      }
+    }
+
+    // Stop terminal if running
+    if (this.status.terminal) {
+      try {
+        this.outputChannel.appendLine('🔄 Stopping terminal...');
+        // Send Ctrl+C to the terminal
+        this.status.terminal.sendText('\x03'); // Ctrl+C
+        
+        // Wait a bit for graceful shutdown
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Dispose the terminal
+        this.status.terminal.dispose();
+        this.status.terminal = undefined;
+        this.outputChannel.appendLine('✅ Terminal stopped');
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Error stopping terminal: ${error}`);
+        // Force cleanup
+        this.status.terminal = undefined;
+      }
+    }
+
+    // Kill any remaining processes on the port (nuclear option)
+    if (currentPort) {
+      try {
+        this.outputChannel.appendLine(`🔫 Killing any remaining processes on port ${currentPort}...`);
+        await this.killExistingProcesses(currentPort);
+        
+        // Wait a moment and verify the port is free
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        const isStillListening = await this.checkPortListening(currentPort);
+        if (isStillListening) {
+          this.outputChannel.appendLine(`⚠️ Port ${currentPort} is still in use after cleanup attempt`);
+          vscode.window.showWarningMessage(`Server may still be running on port ${currentPort}. You may need to manually stop it.`);
+        } else {
+          this.outputChannel.appendLine(`✅ Port ${currentPort} is now free`);
+        }
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Error cleaning up port ${currentPort}: ${error}`);
+      }
+    }
+
+    // Reset status
+    this.status.isRunning = false;
+    this.status.isStarting = false;
+    this.status.port = null;
+    this.status.url = null;
+
+    // Update context key for command palette
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+    
+    // Update UI manager with stopped status
+    this.uiManager.resetProjectStatus();
+
+    this.updateStatusBar();
+    this.outputChannel.appendLine('✅ Preview stopped completely');
+    
+    // Show confirmation to user
+    vscode.window.showInformationMessage('Preview server stopped');
+  }
+
+  private async createNewProject(): Promise<void> {
+    if (this.isCreatingProject) {
+      vscode.window.showInformationMessage('Project creation already in progress');
+        return;
+    }
+
     const template = await vscode.window.showQuickPick(
       this.projectTemplates.map(t => ({
         label: t.name,
         description: t.description,
-        detail: `Port: ${t.port} | Dependencies: ${t.dependencies.join(', ')}`,
         template: t
       })),
       {
@@ -266,23 +978,20 @@ class PreviewManager {
 
     if (confirm !== 'Yes') return;
 
-      try {
-        await this.executeProjectCreation(selectedTemplate, workspaceRoot);
-      } catch (error) {
-        vscode.window.showErrorMessage(`Failed to create project: ${error}`);
-      }
-    } finally {
-      this.isCreatingProject = false;
-    }
-  }
+    this.isCreatingProject = true;
 
-  private async executeProjectCreation(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
-    this.outputChannel.appendLine(`🚀 Creating new ${template.name} project...`);
-    this.outputChannel.appendLine(`Command: ${template.command}`);
+    try {
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (!workspaceRoot) {
+        throw new Error('No workspace folder found');
+      }
+
+      this.outputChannel.appendLine(`🚀 Creating new ${selectedTemplate.name} project...`);
+      this.outputChannel.appendLine(`Command: ${selectedTemplate.command}`);
     this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
     
     // Check for Next.js naming restrictions
-    if (template.name.toLowerCase().includes('next.js') && this.hasInvalidWorkspaceName(workspaceRoot)) {
+      if (selectedTemplate.name.toLowerCase().includes('next.js') && this.hasInvalidWorkspaceName(workspaceRoot)) {
       const action = await vscode.window.showErrorMessage(
         'Next.js cannot create projects in folders with capital letters or special characters. Please rename your workspace folder to use only lowercase letters, numbers, and hyphens.',
         'Try Alternative Template', 'Cancel'
@@ -300,14 +1009,14 @@ class PreviewManager {
     // Show progress
     await vscode.window.withProgress({
       location: vscode.ProgressLocation.Notification,
-      title: `Creating ${template.name} project...`,
+        title: `Creating ${selectedTemplate.name} project...`,
       cancellable: false
     }, async (progress) => {
       progress.report({ message: 'Initializing project...' });
 
       // Execute the creation command
-      await new Promise<void>((resolve, reject) => {
-        const commandParts = template.command.split(' ');
+        await new Promise((resolve, reject) => {
+          const commandParts = selectedTemplate.command.split(' ');
         const mainCommand = commandParts[0];
         const args = commandParts.slice(1);
         
@@ -315,35 +1024,25 @@ class PreviewManager {
         
         const childProcess = child_process.spawn(mainCommand, args, { 
           cwd: workspaceRoot, 
-          stdio: 'pipe',
-          shell: true,
-          env: { ...process.env, FORCE_COLOR: '1' }
+          shell: false,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
+          detached: false
         });
 
         let output = '';
         let errorOutput = '';
         
-        childProcess.stdout?.on('data', (data: Buffer) => {
-          const text = data.toString();
-          output += text;
-          this.outputChannel.appendLine(`[STDOUT] ${text}`);
-          
-          if (text.includes('Installing packages') || text.includes('npm install')) {
-            progress.report({ message: 'Installing dependencies...' });
-          } else if (text.includes('Success!') || text.includes('Done') || text.includes('created successfully')) {
-            progress.report({ message: 'Project created successfully!' });
-          }
-        });
+          childProcess.stdout.on('data', (data) => {
+            const dataStr = data.toString();
+            output += dataStr;
+            this.outputChannel.appendLine(`[OUTPUT] ${dataStr.trim()}`);
+          });
 
-        childProcess.stderr?.on('data', (data: Buffer) => {
-          const text = data.toString();
-          errorOutput += text;
-          this.outputChannel.appendLine(`[STDERR] ${text}`);
-        });
-
-        childProcess.on('error', (error: Error) => {
-          this.outputChannel.appendLine(`[ERROR] Process error: ${error.message}`);
-          reject(new Error(`Process error: ${error.message}`));
+          childProcess.stderr.on('data', (data) => {
+            const dataStr = data.toString();
+            errorOutput += dataStr;
+            this.outputChannel.appendLine(`[ERROR] ${dataStr.trim()}`);
         });
 
         childProcess.on('close', (code: number) => {
@@ -355,7 +1054,7 @@ class PreviewManager {
           
           if (code === 0) {
             this.outputChannel.appendLine(`✅ Project created successfully!`);
-            resolve();
+              resolve(undefined);
           } else {
             reject(new Error(`Project creation failed with code ${code}. Check the output for details.`));
           }
@@ -367,8 +1066,45 @@ class PreviewManager {
       // Wait a bit for files to be written
       await new Promise(resolve => setTimeout(resolve, 2000));
       
+      // Handle Next.js subdirectory creation
+      if (selectedTemplate.name.toLowerCase().includes('next.js')) {
+        try {
+          const nextAppDir = path.join(workspaceRoot, 'my-nextjs-app');
+          if (fs.existsSync(nextAppDir)) {
+            this.outputChannel.appendLine('🔄 Moving Next.js files from subdirectory to workspace root...');
+            
+            // Move all files from my-nextjs-app to workspace root
+            const files = fs.readdirSync(nextAppDir);
+            for (const file of files) {
+              const sourcePath = path.join(nextAppDir, file);
+              const targetPath = path.join(workspaceRoot, file);
+              
+              if (fs.statSync(sourcePath).isDirectory()) {
+                // Move directory
+                if (fs.existsSync(targetPath)) {
+                  fs.rmSync(targetPath, { recursive: true, force: true });
+                }
+                fs.renameSync(sourcePath, targetPath);
+              } else {
+                // Move file
+                if (fs.existsSync(targetPath)) {
+                  fs.unlinkSync(targetPath);
+                }
+                fs.renameSync(sourcePath, targetPath);
+              }
+            }
+            
+            // Remove the empty my-nextjs-app directory
+            fs.rmdirSync(nextAppDir);
+            this.outputChannel.appendLine('✅ Next.js files moved to workspace root');
+          }
+        } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Warning: Could not move Next.js files: ${error}`);
+        }
+      }
+      
       // Update package.json with proper scripts for React projects
-      if (template.name.toLowerCase().includes('react') && !template.name.toLowerCase().includes('fullstack')) {
+        if (selectedTemplate.name.toLowerCase().includes('react') && !selectedTemplate.name.toLowerCase().includes('fullstack')) {
         try {
           const packageJsonPath = path.join(workspaceRoot, 'package.json');
           const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -444,13 +1180,243 @@ export default App`;
           this.outputChannel.appendLine(`⚠️ Warning: Could not create React project files: ${error}`);
         }
       }
+    });
 
-      // Handle fullstack project creation
-      if (template.name.toLowerCase().includes('fullstack')) {
+    // Show success message and offer to start preview
+    const action = await vscode.window.showInformationMessage(
+        `🎉 ${selectedTemplate.name} project created successfully! Start preview now?`,
+      'Start Preview', 'Later'
+    );
+
+    if (action === 'Start Preview') {
+      // Set the config for the new project
+      this.config = {
+          framework: selectedTemplate.name.toLowerCase().includes('next') ? 'next' :
+                     selectedTemplate.name.toLowerCase().includes('vite') ? 'vite' :
+                     selectedTemplate.name.toLowerCase().includes('astro') ? 'astro' :
+                     selectedTemplate.name.toLowerCase().includes('remix') ? 'remix' :
+                     selectedTemplate.name.toLowerCase().includes('gatsby') ? 'gatsby' : 'generic',
+          port: selectedTemplate.name.toLowerCase().includes('vite') ? 5173 : selectedTemplate.port,
+        script: 'dev',
+        packageManager: 'npm'
+      };
+
+      // Update the status bar to show the preview button
+      this.updateStatusBar();
+      
+      // Start the preview
+      await this.startPreview();
+    } else {
+      // Even if they don't start preview, update the status bar
+      // so they can see the preview button
+      this.updateStatusBar();
+      }
+
+    } catch (error) {
+      this.outputChannel.appendLine(`❌ Error creating project: ${error}`);
+      vscode.window.showErrorMessage(`Failed to create project: ${error}`);
+    } finally {
+      this.isCreatingProject = false;
+    }
+  }
+
+  private hasInvalidWorkspaceName(workspacePath: string): boolean {
+    const folderName = path.basename(workspacePath);
+    return /[A-Z]/.test(folderName) || /[^a-z0-9-]/.test(folderName);
+  }
+
+  private async offerAlternativeTemplates(): Promise<void> {
+    const alternatives = [
+      {
+        label: 'Simple React',
+        description: 'Basic React app with Vite (no naming restrictions)',
+        template: this.projectTemplates.find(t => t.name === 'Simple React')
+      },
+      {
+        label: 'Simple HTML/CSS/JS',
+        description: 'Basic static site (no naming restrictions)',
+        template: this.projectTemplates.find(t => t.name === 'Simple HTML/CSS/JS')
+      }
+    ].filter(t => t.template);
+
+    const selected = await vscode.window.showQuickPick(alternatives, {
+      placeHolder: 'Choose an alternative template without naming restrictions...',
+      ignoreFocusOut: true
+    });
+
+    if (selected && selected.template) {
+      // Temporarily replace the template name to avoid the naming check
+      const originalName = selected.template.name;
+      selected.template.name = 'Alternative Template';
+      
+      try {
+        // Create a new project with the selected template
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (workspaceRoot) {
+          await this.createNewProject();
+        }
+      } finally {
+        selected.template.name = originalName;
+      }
+    }
+  }
+
+  private async executeProjectCreation(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
+    this.outputChannel.appendLine(`🚀 Creating new ${template.name} project...`);
+    this.outputChannel.appendLine(`Command: ${template.command}`);
+    this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
+
+    // Check for Next.js naming restrictions
+    if (template.name.toLowerCase().includes('next.js') && this.hasInvalidWorkspaceName(workspaceRoot)) {
+      const action = await vscode.window.showErrorMessage(
+        'Next.js cannot create projects in folders with capital letters or special characters. Please rename your workspace folder to use only lowercase letters, numbers, and hyphens.',
+        'Try Alternative Template', 'Cancel'
+      );
+      
+      if (action === 'Try Alternative Template') {
+        // Offer alternative templates that don't have naming restrictions
+        await this.offerAlternativeTemplates();
+        return;
+      } else {
+        throw new Error('Project creation cancelled due to workspace naming restrictions');
+      }
+    }
+
+    // Show progress
+    await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: `Creating ${template.name} project...`,
+      cancellable: false
+    }, async (progress) => {
+      progress.report({ message: 'Initializing project...' });
+
+      // Execute the creation command
+      await new Promise<void>((resolve, reject) => {
+        const commandParts = template.command.split(' ');
+        const mainCommand = commandParts[0];
+        const args = commandParts.slice(1);
+
+        this.outputChannel.appendLine(`Executing: ${mainCommand} ${args.join(' ')}`);
+
+        const childProcess = child_process.spawn(mainCommand, args, {
+          cwd: workspaceRoot,
+          shell: false,
+          stdio: ['pipe', 'pipe', 'pipe'],
+          windowsHide: true,
+          detached: false
+        });
+
+        let output = '';
+        let errorOutput = '';
+
+        childProcess.stdout.on('data', (data) => {
+          const dataStr = data.toString();
+          output += dataStr;
+          this.outputChannel.appendLine(`[OUTPUT] ${dataStr.trim()}`);
+        });
+
+        childProcess.stderr.on('data', (data) => {
+          const dataStr = data.toString();
+          errorOutput += dataStr;
+          this.outputChannel.appendLine(`[ERROR] ${dataStr.trim()}`);
+        });
+
+        childProcess.on('close', (code: number) => {
+          this.outputChannel.appendLine(`[EXIT] Process exited with code ${code}`);
+          this.outputChannel.appendLine(`[OUTPUT] Full output: ${output}`);
+          if (errorOutput) {
+            this.outputChannel.appendLine(`[ERRORS] Error output: ${errorOutput}`);
+          }
+          
+          if (code === 0) {
+            this.outputChannel.appendLine(`✅ Project created successfully!`);
+            resolve();
+      } else {
+            reject(new Error(`Project creation failed with code ${code}. Check the output for details.`));
+          }
+        });
+      });
+
+      progress.report({ message: 'Setting up project...' });
+      
+      // Wait a bit for files to be written
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Update package.json with proper scripts for React projects
+      if (template.name.toLowerCase().includes('react') && !template.name.toLowerCase().includes('fullstack')) {
         try {
-          await this.createFullstackProject(template, workspaceRoot);
-        } catch (error) {
-          this.outputChannel.appendLine(`⚠️ Warning: Could not create fullstack project: ${error}`);
+          const packageJsonPath = path.join(workspaceRoot, 'package.json');
+          const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+          
+          // Add proper scripts for React/Vite projects
+          packageJson.scripts = {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+          };
+          
+          // Write updated package.json
+          fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
+          this.outputChannel.appendLine('✅ Updated package.json with build scripts');
+          
+          // Create React project files
+          const viteConfigContent = `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    port: 5173,
+    strictPort: false,
+    open: false
+  }
+})`;
+    
+          const mainJsxContent = `import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from './App'
+
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+)`;
+    
+          const appJsxContent = `import React from 'react'
+
+function App() {
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1>Hello React! 🚀</h1>
+      <p>Your new React app is ready!</p>
+          </div>
+  )
+}
+
+export default App`;
+
+          const indexHtmlContent = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React App</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>`;
+    
+          // Write all the files
+          fs.writeFileSync(path.join(workspaceRoot, 'vite.config.js'), viteConfigContent);
+          fs.writeFileSync(path.join(workspaceRoot, 'src/main.jsx'), mainJsxContent);
+          fs.writeFileSync(path.join(workspaceRoot, 'src/App.jsx'), appJsxContent);
+          fs.writeFileSync(path.join(workspaceRoot, 'index.html'), indexHtmlContent);
+          
+          this.outputChannel.appendLine('✅ Created React project files (vite.config.js, src/main.jsx, src/App.jsx, index.html)');
+    } catch (error) {
+          this.outputChannel.appendLine(`⚠️ Warning: Could not create React project files: ${error}`);
         }
       }
     });
@@ -479,1654 +1445,167 @@ export default App`;
       
       // Start the preview
       await this.startPreview();
-    } else {
+          } else {
       // Even if they don't start preview, update the status bar
       // so they can see the preview button
       this.updateStatusBar();
     }
   }
 
-  private async detectProjectConfig(): Promise<ProjectConfig> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-      throw new Error('No workspace folder found');
-    }
+  private registerViewProviders(): void {
+    // Register template view provider
+    const templatePanel = TemplatePanel.getInstance();
+    const templateProvider = new TemplateViewProvider(templatePanel, this.contextKey.extensionUri);
+    this.contextKey.subscriptions.push(
+      vscode.window.registerWebviewViewProvider('preview.templates', templateProvider)
+    );
 
-    const packageJsonPath = path.join(workspaceRoot, 'package.json');
-    if (!fs.existsSync(packageJsonPath)) {
-      // No project found - offer to create one
-      const action = await vscode.window.showInformationMessage(
-        'No project found in this workspace. Create a new project?',
-        'Create Project', 'Cancel'
-      );
-
-      if (action === 'Create Project') {
-        await this.createNewProject();
-        // Try to detect again after creation
-        if (fs.existsSync(packageJsonPath)) {
-          return this.detectProjectConfig();
-        } else {
-          throw new Error('Project creation was cancelled or failed');
-        }
-      } else {
-        throw new Error('No package.json found in workspace');
-      }
-    }
-
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-    const scripts = packageJson.scripts || {};
-
-    // Determine framework
-    let framework = 'generic';
-    const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-    
-    // Check for fullstack projects first
-    if (scripts.dev && scripts['dev:backend'] && scripts['dev:frontend']) {
-      framework = 'fullstack';
-      this.outputChannel.appendLine(`🎯 Detected fullstack project with backend and frontend scripts`);
-    } else if (dependencies.next) framework = 'next';
-    else if (dependencies.vite) framework = 'vite';
-    else if (dependencies.gatsby) framework = 'gatsby';
-    else if (dependencies.astro) framework = 'astro';
-    else if (dependencies['@remix-run/react']) framework = 'remix';
-
-    // Determine script to run
-    let script = 'dev';
-    if (scripts.dev) script = 'dev';
-    else if (scripts.start) script = 'start';
-    else if (scripts.serve) script = 'serve';
-
-    // Determine package manager
-    let packageManager = 'npm';
-    if (fs.existsSync(path.join(workspaceRoot, 'yarn.lock'))) packageManager = 'yarn';
-    else if (fs.existsSync(path.join(workspaceRoot, 'pnpm-lock.yaml'))) packageManager = 'pnpm';
-
-    // Determine default port
-    let port = 3000;
-    switch (framework) {
-      case 'fullstack':
-        port = 3000; // Frontend port for fullstack
-        this.outputChannel.appendLine(`🎯 Detected fullstack project - using frontend port 3000`);
-        break;
-      case 'vite': 
-        port = 5173; 
-        this.outputChannel.appendLine(`🎯 Detected Vite project - using port 5173`);
-        break;
-      case 'next': 
-        port = 3000; 
-        this.outputChannel.appendLine(`🎯 Detected Next.js project - using port 3000`);
-        break;
-      case 'gatsby': 
-        port = 8000; 
-        this.outputChannel.appendLine(`🎯 Detected Gatsby project - using port 8000`);
-        break;
-      case 'astro': 
-        port = 4321; 
-        this.outputChannel.appendLine(`🎯 Detected Astro project - using port 4321`);
-        break;
-      case 'remix': 
-        port = 3000; 
-        this.outputChannel.appendLine(`🎯 Detected Remix project - using port 3000`);
-        break;
-      default: 
-        port = 3000; 
-        this.outputChannel.appendLine(`🎯 Generic project - using port 3000`);
-        break;
-    }
-
-    // Check if custom port is configured
-    const config = vscode.workspace.getConfiguration('preview');
-    const customPort = config.get<number>('port');
-    if (customPort) {
-      this.outputChannel.appendLine(`⚠️ Custom port override detected: ${customPort} (framework default: ${port})`);
-      
-      // For Vite projects, always respect the Vite config port, not custom override
-      if (framework === 'vite') {
-        this.outputChannel.appendLine(`🎯 Vite project detected - ignoring custom port override, using Vite config port`);
-        // We'll validate the Vite config port later
-      } else {
-        port = customPort;
-      }
-    } else {
-      this.outputChannel.appendLine(`✅ Using framework default port: ${port}`);
-    }
-
-    return { framework, port, script, packageManager };
+    // Register project control view provider
+    const projectControlPanel = ProjectControlPanel.getInstance();
+    const projectControlProvider = new ProjectControlViewProvider(projectControlPanel, this.contextKey.extensionUri);
+    this.contextKey.subscriptions.push(
+      vscode.window.registerWebviewViewProvider('preview.control', projectControlProvider)
+    );
   }
 
-  private async checkDependencies(): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) return;
-
-    const nodeModulesPath = path.join(workspaceRoot, 'node_modules');
-    if (!fs.existsSync(nodeModulesPath)) {
-      const action = await vscode.window.showInformationMessage(
-        'Dependencies not installed. Install them now?',
-        'Yes', 'No'
-      );
-
-      if (action === 'Yes') {
-        await this.installDependencies();
-      } else {
-        throw new Error('Dependencies must be installed to run preview');
-      }
-    }
-  }
-
-  private async validateViteConfig(): Promise<void> {
-    if (this.config?.framework !== 'vite') return;
-    
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) return;
-
-    const viteConfigPath = path.join(workspaceRoot, 'vite.config.js');
-    if (fs.existsSync(viteConfigPath)) {
-      try {
-        const configContent = fs.readFileSync(viteConfigPath, 'utf8');
-        
-        // Extract the actual port from Vite config
-        const portMatch = configContent.match(/port:\s*(\d+)/);
-        if (portMatch) {
-          const viteConfigPort = parseInt(portMatch[1]);
-          this.outputChannel.appendLine(`🔍 Vite config port: ${viteConfigPort}`);
-          
-          // Always use the Vite config port for Vite projects
-          if (this.config.port !== viteConfigPort) {
-            this.outputChannel.appendLine(`🔄 Updating extension port from ${this.config.port} to Vite config port ${viteConfigPort}`);
-            this.config.port = viteConfigPort;
-          }
-          
-          if (viteConfigPort !== 5173) {
-            this.outputChannel.appendLine(`⚠️ Vite config port ${viteConfigPort} is not standard (5173), but will use it`);
-          }
-        } else {
-          this.outputChannel.appendLine(`⚠️ No port found in Vite config, using default 5173`);
-          this.config.port = 5173;
-        }
-      } catch (error) {
-        this.outputChannel.appendLine(`⚠️ Could not validate Vite config: ${error}`);
-      }
-    } else {
-      this.outputChannel.appendLine(`⚠️ No Vite config found, using default port 5173`);
-      this.config.port = 5173;
-    }
-  }
-
-  private async createFullstackProject(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
-    this.outputChannel.appendLine(`🚀 Creating fullstack project: ${template.name}`);
-    
-    try {
-      // Detect available port for backend (start from 3001 to avoid conflicts with frontend)
-      const backendPort = await detectPort(3001);
-      this.outputChannel.appendLine(`🔍 Detected available backend port: ${backendPort}`);
-      
-      // Update package.json with fullstack scripts
-      const packageJsonPath = path.join(workspaceRoot, 'package.json');
-      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-      
-      // Add fullstack scripts
-      packageJson.scripts = {
-        "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-        "dev:backend": "nodemon backend/server.js",
-        "dev:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm run dev" : "cd frontend && npm run dev",
-        "build": "npm run build:frontend",
-        "build:frontend": template.name.toLowerCase().includes('next') ? "cd frontend && npm run build" : "cd frontend && npm run build",
-        "start": "node backend/server.js"
-      };
-      
-      // Add fullstack dependencies
-      packageJson.dependencies = {
-        "express": "^4.18.2",
-        "cors": "^2.8.5"
-      };
-      
-      packageJson.devDependencies = {
-        "nodemon": "^3.0.1",
-        "concurrently": "^8.2.0"
-      };
-      
-      // Write updated package.json
-      fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
-      this.outputChannel.appendLine('✅ Updated package.json with fullstack scripts and dependencies');
-      
-      // Create backend structure with detected port
-      await this.createBackendStructure(workspaceRoot, backendPort);
-      
-      // Create frontend structure with detected backend port
-      await this.createFrontendStructure(template, workspaceRoot, backendPort);
-      
-      // Create root README
-      await this.createFullstackReadme(template, workspaceRoot);
-      
-      this.outputChannel.appendLine('✅ Fullstack project structure created successfully');
-      
-    } catch (error) {
-      this.outputChannel.appendLine(`❌ Error creating fullstack project: ${error}`);
-      throw error;
-    }
-  }
-
-  private async createBackendStructure(workspaceRoot: string, backendPort: number): Promise<void> {
-    const backendDir = path.join(workspaceRoot, 'backend');
-    
-    // Create backend package.json
-    const backendPackageJson = {
-      name: "backend",
-      version: "1.0.0",
-      description: "Backend server for fullstack application",
-      main: "server.js",
-      scripts: {
-        "start": "node server.js",
-        "dev": "nodemon server.js"
-      },
-      dependencies: {
-        "express": "^4.18.2",
-        "cors": "^2.8.5"
-      },
-      devDependencies: {
-        "nodemon": "^3.0.1"
-      }
-    };
-    
-    fs.writeFileSync(path.join(backendDir, 'package.json'), JSON.stringify(backendPackageJson, null, 2));
-    
-    // Create Express server with dynamic port
-    const serverContent = `const express = require('express');
-const cors = require('cors');
-
-const app = express();
-const PORT = process.env.PORT || ${backendPort};
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.get('/api/health', (req, res) => {
-  res.json({ message: 'Backend server is running! 🚀', timestamp: new Date().toISOString() });
-});
-
-app.get('/api/data', (req, res) => {
-  res.json({ 
-    message: 'Sample data from backend',
-    items: ['Item 1', 'Item 2', 'Item 3'],
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log(\`🚀 Backend server running on port \${PORT}\`);
-  console.log(\`📡 Health check: http://localhost:\${PORT}/api/health\`);
-  console.log(\`📊 Sample data: http://localhost:\${PORT}/api/data\`);
-});`;
-    
-    fs.writeFileSync(path.join(backendDir, 'server.js'), serverContent);
-    
-    this.outputChannel.appendLine(`✅ Backend structure created (server.js, package.json) - Port: ${backendPort}`);
-  }
-
-  private async createFrontendStructure(template: ProjectTemplate, workspaceRoot: string, backendPort: number): Promise<void> {
-    const frontendDir = path.join(workspaceRoot, 'frontend');
-    
-          if (template.name.toLowerCase().includes('next')) {
-        // Create Next.js frontend
-        await this.createNextjsFrontend(frontendDir, backendPort);
-      } else {
-        // Create React frontend
-        await this.createReactFrontend(frontendDir, backendPort);
-      }
-  }
-
-  private async createNextjsFrontend(frontendDir: string, backendPort: number): Promise<void> {
-    // Create Next.js package.json
-    const nextPackageJson = {
-      name: "frontend",
-      version: "1.0.0",
-      description: "Next.js frontend for fullstack application",
-      scripts: {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start"
-      },
-      dependencies: {
-        "next": "^14.0.0",
-        "react": "^18.0.0",
-        "react-dom": "^18.0.0"
-      },
-      devDependencies: {
-        "@types/node": "^20.0.0",
-        "@types/react": "^18.0.0",
-        "@types/react-dom": "^18.0.0",
-        "typescript": "^5.0.0"
-      }
-    };
-    
-    fs.writeFileSync(path.join(frontendDir, 'package.json'), JSON.stringify(nextPackageJson, null, 2));
-    
-    // Create basic Next.js structure
-    const pagesDir = path.join(frontendDir, 'pages');
-    const apiDir = path.join(frontendDir, 'pages/api');
-    
-    fs.mkdirSync(pagesDir, { recursive: true });
-    fs.mkdirSync(apiDir, { recursive: true });
-    
-    // Create index page
-    const indexPage = `import { useState, useEffect } from 'react';
-
-export default function Home() {
-  const [backendData, setBackendData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('http://localhost:${backendPort}/api/data')
-      .then(res => res.json())
-      .then(data => {
-        setBackendData(data);
-        setLoading(false);
+  private registerCommands(): void {
+    // Register show UI command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.showUI', () => {
+        this.uiManager.showAppropriateUI();
       })
-      .catch(err => {
-        console.error('Error fetching from backend:', err);
-        setLoading(false);
-      });
-  }, []);
+    );
 
-  return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1>🚀 Fullstack Next.js + Node.js App</h1>
-      <p>This is a fullstack application with Next.js frontend and Express backend.</p>
-      
-      <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-        <h3>Backend Data:</h3>
-        {loading ? (
-          <p>Loading data from backend...</p>
-        ) : backendData ? (
-          <div>
-            <p><strong>Message:</strong> {backendData.message}</p>
-            <p><strong>Items:</strong> {backendData.items.join(', ')}</p>
-            <p><strong>Timestamp:</strong> {backendData.timestamp}</p>
-          </div>
-        ) : (
-          <p>No data received from backend</p>
-        )}
-      </div>
-      
-      <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        <p><strong>Backend:</strong> http://localhost:${backendPort}</p>
-        <p><strong>Frontend:</strong> http://localhost:3000</p>
-      </div>
-    </div>
-  );
-}`;
-    
-    fs.writeFileSync(path.join(frontendDir, 'pages/index.js'), indexPage);
-    
-    this.outputChannel.appendLine('✅ Next.js frontend structure created');
-  }
-
-  private async createReactFrontend(frontendDir: string, backendPort: number): Promise<void> {
-    // Create React package.json
-    const reactPackageJson = {
-      name: "frontend",
-      version: "1.0.0",
-      description: "React frontend for fullstack application",
-      scripts: {
-        "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview"
-      },
-      dependencies: {
-        "react": "^18.0.0",
-        "react-dom": "^18.0.0"
-      },
-      devDependencies: {
-        "@vitejs/plugin-react": "^4.0.0",
-        "vite": "^4.0.0"
-      }
-    };
-    
-    fs.writeFileSync(path.join(frontendDir, 'package.json'), JSON.stringify(reactPackageJson, null, 2));
-    
-    // Create Vite config
-    const viteConfig = `import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
-export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3000,
-    strictPort: true,
-    open: false
-  }
-})`;
-    
-    fs.writeFileSync(path.join(frontendDir, 'vite.config.js'), viteConfig);
-    
-    // Create src directory and files
-    const srcDir = path.join(frontendDir, 'src');
-    fs.mkdirSync(srcDir, { recursive: true });
-    
-    const mainJsx = `import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)`;
-    
-    const appJsx = `import { useState, useEffect } from 'react';
-
-function App() {
-  const [backendData, setBackendData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('http://localhost:${backendPort}/api/data')
-      .then(res => res.json())
-      .then(data => {
-        setBackendData(data);
-        setLoading(false);
+    // Register run command (start preview server)
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.run', () => {
+        this.startPreview();
       })
-      .catch(err => {
-        console.error('Error fetching from backend:', err);
-        setLoading(false);
-      });
-  }, []);
-
-  return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1>🚀 Fullstack React + Node.js App</h1>
-      <p>This is a fullstack application with React frontend and Express backend.</p>
-      
-      <div style={{ marginTop: '20px', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-        <h3>Backend Data:</h3>
-        {loading ? (
-          <p>Loading data from backend...</p>
-        ) : backendData ? (
-          <div>
-            <p><strong>Message:</strong> {backendData.message}</p>
-            <p><strong>Items:</strong> {backendData.items.join(', ')}</p>
-            <p><strong>Timestamp:</strong> {backendData.timestamp}</p>
-          </div>
-        ) : (
-          <p>No data received from backend</p>
-        )}
-      </div>
-      
-      <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-        <p><strong>Backend:</strong> http://localhost:${backendPort}</p>
-        <p><strong>Frontend:</strong> http://localhost:3000</p>
-      </div>
-    </div>
-  );
-}
-
-export default App;`;
-    
-    const indexHtml = `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fullstack React App</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>`;
-    
-    fs.writeFileSync(path.join(frontendDir, 'src/main.jsx'), mainJsx);
-    fs.writeFileSync(path.join(frontendDir, 'src/App.jsx'), appJsx);
-    fs.writeFileSync(path.join(frontendDir, 'index.html'), indexHtml);
-    
-    this.outputChannel.appendLine('✅ React frontend structure created');
-  }
-
-  private async createFullstackReadme(template: ProjectTemplate, workspaceRoot: string): Promise<void> {
-    const readmeContent = `# 🚀 Fullstack ${template.name}
-
-This is a fullstack application created with the One-Click Local Preview extension.
-
-## 📁 Project Structure
-
-\`\`\`
-.
-├── backend/          # Node.js/Express backend server
-│   ├── server.js     # Express server with API endpoints
-│   └── package.json  # Backend dependencies
-├── frontend/         # Frontend application
-│   ├── src/          # Source files
-│   ├── package.json  # Frontend dependencies
-│   └── ...           # Framework-specific files
-└── package.json      # Root package.json with fullstack scripts
-\`\`\`
-
-## 🚀 Getting Started
-
-### 1. Install Dependencies
-\`\`\`bash
-# Install root dependencies
-npm install
-
-# Install backend dependencies
-cd backend && npm install
-
-# Install frontend dependencies
-cd frontend && npm install
-\`\`\`
-
-### 2. Start Development Servers
-\`\`\`bash
-# Start both backend and frontend (recommended)
-npm run dev
-
-# Or start them separately:
-npm run dev:backend    # Backend on port 5000
-npm run dev:frontend   # Frontend on port 3000
-\`\`\`
-
-## 🌐 URLs
-
-- **Backend API**: http://localhost:5000
-- **Frontend App**: http://localhost:3000
-- **Health Check**: http://localhost:5000/api/health
-- **Sample Data**: http://localhost:5000/api/data
-
-## 🔧 Available Scripts
-
-- \`npm run dev\` - Start both backend and frontend in development mode
-- \`npm run dev:backend\` - Start only the backend server
-- \`npm run dev:frontend\` - Start only the frontend
-- \`npm run build\` - Build the frontend for production
-- \`npm start\` - Start the production backend server
-
-## 📚 API Endpoints
-
-- \`GET /api/health\` - Server health check
-- \`GET /api/data\` - Sample data endpoint
-
-## 🛠️ Technologies Used
-
-- **Backend**: Node.js, Express.js, CORS
-- **Frontend**: ${template.name.toLowerCase().includes('next') ? 'Next.js, React' : 'React, Vite'}
-- **Development**: Nodemon, Concurrently
-- **Ports**: Backend (5000), Frontend (3000)
-
----
-
-Created with ❤️ by the One-Click Local Preview Extension
-`;
-    
-    fs.writeFileSync(path.join(workspaceRoot, 'README.md'), readmeContent);
-          this.outputChannel.appendLine('✅ Fullstack README created');
-    }
-
-  private hasInvalidWorkspaceName(workspaceRoot: string): boolean {
-    const folderName = path.basename(workspaceRoot);
-    // Check for capital letters, spaces, or special characters that cause npm issues
-    return /[A-Z]/.test(folderName) || /\s/.test(folderName) || /[^a-zA-Z0-9\-_]/.test(folderName);
-  }
-
-  private async offerAlternativeTemplates(): Promise<void> {
-    const alternatives = [
-      'Simple React',
-      'Express.js + React Fullstack',
-      'Node.js + Next.js Fullstack',
-      'Simple HTML/CSS/JS'
-    ];
-    
-    const selected = await vscode.window.showQuickPick(alternatives, {
-      placeHolder: 'Select an alternative template that works with your workspace name:',
-      title: 'Alternative Templates'
-    });
-    
-    if (selected) {
-      const template = this.projectTemplates.find(t => t.name === selected);
-      if (template) {
-        this.outputChannel.appendLine(`🔄 Switching to alternative template: ${selected}`);
-        await this.createNewProjectWithTemplate(template);
-      }
-    }
-  }
-
-  private async createNewProjectWithTemplate(template: ProjectTemplate): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-      vscode.window.showErrorMessage('No workspace folder found');
-      return;
-    }
-    
-    try {
-      await this.executeProjectCreation(template, workspaceRoot);
-    } catch (error) {
-      this.outputChannel.appendLine(`❌ Error creating project with template ${template.name}: ${error}`);
-      vscode.window.showErrorMessage(`Failed to create project: ${error}`);
-    }
-  }
-  
-    private async updateViteConfigPort(newPort: number): Promise<void> {
-    if (this.config?.framework !== 'vite') return;
-    
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) return;
-
-    const viteConfigPath = path.join(workspaceRoot, 'vite.config.js');
-    if (fs.existsSync(viteConfigPath)) {
-      try {
-        const configContent = fs.readFileSync(viteConfigPath, 'utf8');
-        
-        // Update the port in the Vite config
-        const updatedConfig = configContent.replace(
-          /port:\s*\d+/,
-          `port: ${newPort}`
-        );
-        
-        fs.writeFileSync(viteConfigPath, updatedConfig);
-        this.outputChannel.appendLine(`✅ Updated Vite config to use port ${newPort}`);
-        
-        // Also update our config to match
-        this.config.port = newPort;
-      } catch (error) {
-        this.outputChannel.appendLine(`⚠️ Could not update Vite config: ${error}`);
-      }
-    }
-  }
-
-  private async killExistingViteProcesses(): Promise<void> {
-    try {
-      this.outputChannel.appendLine('🔍 Checking for existing Vite processes...');
-      
-      // Use pkill to find and kill Vite processes
-      const killProcess = child_process.spawn('pkill', ['-f', 'vite'], {
-        stdio: 'pipe',
-        shell: true
-      });
-
-      return new Promise((resolve) => {
-        killProcess.on('close', (code) => {
-          if (code === 0) {
-            this.outputChannel.appendLine('✅ Killed existing Vite processes');
-          } else {
-            this.outputChannel.appendLine('ℹ️ No existing Vite processes found');
-          }
-          resolve();
-        });
-
-        killProcess.on('error', () => {
-          this.outputChannel.appendLine('ℹ️ Could not check for existing Vite processes');
-          resolve();
-        });
-      });
-    } catch (error) {
-      this.outputChannel.appendLine(`⚠️ Error killing existing Vite processes: ${error}`);
-    }
-  }
-
-  private async killExistingFullstackProcesses(): Promise<void> {
-    try {
-      this.outputChannel.appendLine('🔍 Checking for existing fullstack processes...');
-      
-      // Kill processes using specific ports
-      const ports = [5000, 3000]; // Backend and frontend ports
-      
-      for (const port of ports) {
-        try {
-          // Find processes using the port
-          const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
-            stdio: 'pipe',
-            shell: true
-          });
-
-          let processIds = '';
-          findProcess.stdout?.on('data', (data) => {
-            processIds += data.toString();
-          });
-
-          await new Promise<void>((resolve) => {
-            findProcess.on('close', async (code) => {
-              if (code === 0 && processIds.trim()) {
-                const pids = processIds.trim().split('\n');
-                for (const pid of pids) {
-                  if (pid.trim()) {
-                    try {
-                      const killProcess = child_process.spawn('kill', ['-9', pid.trim()], {
-                        stdio: 'pipe',
-                        shell: true
-                      });
-                      
-                      await new Promise<void>((resolveKill) => {
-                        killProcess.on('close', () => {
-                          this.outputChannel.appendLine(`✅ Killed process ${pid.trim()} using port ${port}`);
-                          resolveKill();
-                        });
-                      });
-                    } catch (error) {
-                      this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
-                    }
-                  }
-                }
-              }
-              resolve();
-            });
-          });
-        } catch (error) {
-          this.outputChannel.appendLine(`⚠️ Error checking port ${port}: ${error}`);
-        }
-      }
-      
-      // Also kill general Node.js processes
-      const processes = ['node', 'npm', 'yarn', 'pnpm'];
-      for (const processName of processes) {
-        try {
-          const killProcess = child_process.spawn('pkill', ['-f', processName], {
-            stdio: 'pipe',
-            shell: true
-          });
-
-          await new Promise<void>((resolve) => {
-            killProcess.on('close', (code) => {
-              if (code === 0) {
-                this.outputChannel.appendLine(`✅ Killed existing ${processName} processes`);
-              } else if (code === 1) {
-                this.outputChannel.appendLine(`ℹ️ No existing ${processName} processes found`);
-              }
-              resolve();
-            });
-
-            killProcess.on('error', (error) => {
-              this.outputChannel.appendLine(`⚠️ Error killing ${processName} processes: ${error}`);
-              resolve();
-            });
-          });
-        } catch (error) {
-          this.outputChannel.appendLine(`⚠️ Error killing ${processName} processes: ${error}`);
-        }
-      }
-      
-      this.outputChannel.appendLine('✅ Fullstack process cleanup completed');
-    } catch (error) {
-      this.outputChannel.appendLine(`⚠️ Error killing existing fullstack processes: ${error}`);
-    }
-  }
-
-  private async killProcessesOnPort(port: number): Promise<void> {
-    try {
-      this.outputChannel.appendLine(`🔍 Aggressively killing processes on port ${port}...`);
-      
-      // Use lsof to find processes using the port
-      const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
-        stdio: 'pipe',
-        shell: true
-      });
-
-      let processIds = '';
-      findProcess.stdout?.on('data', (data) => {
-        processIds += data.toString();
-      });
-
-      await new Promise<void>((resolve) => {
-        findProcess.on('close', async (code) => {
-          if (code === 0 && processIds.trim()) {
-            const pids = processIds.trim().split('\n');
-            this.outputChannel.appendLine(`🎯 Found ${pids.length} process(es) using port ${port}`);
-            
-            for (const pid of pids) {
-              if (pid.trim()) {
-                try {
-                  // First try graceful termination
-                  const killProcess = child_process.spawn('kill', [pid.trim()], {
-                    stdio: 'pipe',
-                    shell: true
-                  });
-                  
-                  await new Promise<void>((resolveKill) => {
-                    killProcess.on('close', () => {
-                      this.outputChannel.appendLine(`✅ Gracefully killed process ${pid.trim()} on port ${port}`);
-                      resolveKill();
-                    });
-                  });
-                  
-                  // Wait a moment for graceful shutdown
-                  await new Promise(resolve => setTimeout(resolve, 500));
-                  
-                  // Check if process is still running, if so, force kill
-                  try {
-                    const checkProcess = child_process.spawn('kill', ['-0', pid.trim()], {
-                      stdio: 'pipe',
-                      shell: true
-                    });
-                    
-                    await new Promise<void>((resolveCheck) => {
-                      checkProcess.on('close', async (checkCode) => {
-                        if (checkCode === 0) {
-                          // Process still running, force kill
-                          this.outputChannel.appendLine(`⚠️ Process ${pid.trim()} still running, force killing...`);
-                          const forceKill = child_process.spawn('kill', ['-9', pid.trim()], {
-                            stdio: 'pipe',
-                            shell: true
-                          });
-                          
-                          await new Promise<void>((resolveForce) => {
-                            forceKill.on('close', () => {
-                              this.outputChannel.appendLine(`💀 Force killed process ${pid.trim()} on port ${port}`);
-                              resolveForce();
-                            });
-                          });
-                        }
-                        resolveCheck();
-                      });
-                    });
-                  } catch (error) {
-                    // Process already terminated
-                  }
-                } catch (error) {
-                  this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
-                }
-              }
-            }
-          } else {
-            this.outputChannel.appendLine(`ℹ️ No processes found using port ${port}`);
-          }
-          resolve();
-        });
-      });
-      
-      this.outputChannel.appendLine(`✅ Port ${port} cleanup completed`);
-    } catch (error) {
-      this.outputChannel.appendLine(`⚠️ Error killing processes on port ${port}: ${error}`);
-    }
-  }
-
-  private async cleanWorkspace(workspaceRoot: string): Promise<void> {
-    try {
-      this.outputChannel.appendLine('🧹 Cleaning workspace for new project...');
-      
-      // Get all files and directories
-      const items = fs.readdirSync(workspaceRoot);
-      
-      for (const item of items) {
-        const itemPath = path.join(workspaceRoot, item);
-        const stats = fs.statSync(itemPath);
-        
-        // Skip .git directory
-        if (item === '.git') {
-          this.outputChannel.appendLine('ℹ️ Preserving .git directory');
-          continue;
-        }
-        
-        if (stats.isDirectory()) {
-          // Remove directories (including .next, node_modules, etc.)
-          fs.rmSync(itemPath, { recursive: true, force: true });
-          this.outputChannel.appendLine(`🗑️ Removed directory: ${item}`);
-        } else {
-          // Remove files
-          fs.unlinkSync(itemPath);
-          this.outputChannel.appendLine(`🗑️ Removed file: ${item}`);
-        }
-      }
-      
-      this.outputChannel.appendLine('✅ Workspace cleaned successfully');
-    } catch (error) {
-      this.outputChannel.appendLine(`❌ Error cleaning workspace: ${error}`);
-      throw new Error(`Failed to clean workspace: ${error}`);
-    }
-  }
-
-  private async installDependencies(): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) return;
-
-    this.outputChannel.appendLine('Installing dependencies...');
-    
-    return new Promise((resolve, reject) => {
-      const installProcess = child_process.spawn(
-        this.config?.packageManager === 'yarn' ? 'yarn' : 'npm',
-        ['install'],
-        { cwd: workspaceRoot, stdio: 'pipe' }
-      );
-
-      installProcess.stdout?.on('data', (data) => {
-        this.outputChannel.appendLine(data.toString());
-      });
-
-      installProcess.stderr?.on('data', (data) => {
-        this.outputChannel.appendLine(data.toString());
-      });
-
-      installProcess.on('close', (code) => {
-        if (code === 0) {
-          this.outputChannel.appendLine('Dependencies installed successfully');
-          resolve();
-        } else {
-          reject(new Error(`Failed to install dependencies (exit code: ${code})`));
-        }
-      });
-    });
-  }
-
-  private async installFullstackDependencies(): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) return;
-
-    this.outputChannel.appendLine('Installing fullstack dependencies...');
-    
-    try {
-      // Install backend dependencies
-      this.outputChannel.appendLine('Installing backend dependencies...');
-      await this.installDependenciesInDirectory(path.join(workspaceRoot, 'backend'));
-      
-      // Install frontend dependencies
-      this.outputChannel.appendLine('Installing frontend dependencies...');
-      await this.installDependenciesInDirectory(path.join(workspaceRoot, 'frontend'));
-      
-      this.outputChannel.appendLine('✅ Fullstack dependencies installed successfully');
-    } catch (error) {
-      this.outputChannel.appendLine(`❌ Error installing fullstack dependencies: ${error}`);
-      throw error;
-    }
-  }
-
-  private async installDependenciesInDirectory(dir: string): Promise<void> {
-    if (!fs.existsSync(dir)) {
-      this.outputChannel.appendLine(`⚠️ Directory ${dir} does not exist, skipping`);
-      return;
-    }
-
-    return new Promise((resolve, reject) => {
-      const installProcess = child_process.spawn(
-        this.config?.packageManager === 'yarn' ? 'yarn' : 'npm',
-        ['install'],
-        { cwd: dir, stdio: 'pipe' }
-      );
-
-      installProcess.stdout?.on('data', (data) => {
-        this.outputChannel.appendLine(`[${path.basename(dir)}] ${data.toString()}`);
-      });
-
-      installProcess.stderr?.on('data', (data) => {
-        this.outputChannel.appendLine(`[${path.basename(dir)}] ${data.toString()}`);
-      });
-
-      installProcess.on('close', (code) => {
-        if (code === 0) {
-          this.outputChannel.appendLine(`✅ Dependencies installed in ${path.basename(dir)}`);
-          resolve();
-        } else {
-          reject(new Error(`Failed to install dependencies in ${path.basename(dir)} (exit code: ${code})`));
-        }
-      });
-    });
-  }
-
-  private async findAvailablePort(desiredPort: number): Promise<number> {
-    try {
-      this.outputChannel.appendLine(`🔍 Checking if port ${desiredPort} is available...`);
-      
-      // First, aggressively kill any processes using the desired port
-      await this.killProcessesOnPort(desiredPort);
-      
-      // Wait a moment for processes to fully terminate
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Now check port availability
-      const availablePort = await detectPort(desiredPort);
-      
-      if (availablePort === desiredPort) {
-        this.outputChannel.appendLine(`✅ Port ${desiredPort} is available after cleanup`);
-      } else {
-        this.outputChannel.appendLine(`⚠️ Port ${desiredPort} still busy after cleanup, using ${availablePort} instead`);
-        
-        // For Vite projects, update the Vite config to use the new port
-        if (this.config?.framework === 'vite') {
-          await this.updateViteConfigPort(availablePort);
-        }
-      }
-      
-      return availablePort;
-    } catch (error) {
-      this.outputChannel.appendLine(`❌ Port detection failed: ${error}`);
-      this.outputChannel.appendLine(`🔄 Falling back to requested port ${desiredPort}`);
-      return desiredPort;
-    }
-  }
-
-  private async startPreview(): Promise<void> {
-    try {
-      if (this.status.isRunning || this.status.isStarting) {
-        this.outputChannel.appendLine('⚠️ Preview already running or starting');
-        return;
-      }
-
-      this.status.isStarting = true;
-      this.updateStatusBar();
-
-      this.outputChannel.appendLine('🚀 Starting preview...');
-
-      // Kill any existing processes that might be using the port
-      if (this.config?.framework === 'vite') {
-        await this.killExistingViteProcesses();
-      } else if (this.config?.framework === 'fullstack') {
-        await this.killExistingFullstackProcesses();
-      }
-
-      // Detect project configuration
-      this.config = await this.detectProjectConfig();
-      
-      // Log the detected configuration for debugging
-      this.outputChannel.appendLine(`🔍 Detected project config:`);
-      this.outputChannel.appendLine(`   Framework: ${this.config.framework}`);
-      this.outputChannel.appendLine(`   Port: ${this.config.port}`);
-      this.outputChannel.appendLine(`   Script: ${this.config.script}`);
-      this.outputChannel.appendLine(`   Package Manager: ${this.config.packageManager}`);
-      
-      // Check dependencies
-      await this.checkDependencies();
-      
-      // For fullstack projects, install frontend dependencies separately
-      if (this.config.framework === 'fullstack') {
-        await this.installFullstackDependencies();
-      }
-
-      // Validate Vite config if needed
-      await this.validateViteConfig();
-
-      // Find available port
-      const port = await this.findAvailablePort(this.config.port);
-      this.outputChannel.appendLine(`🌐 Using port: ${port} (requested: ${this.config.port})`);
-      this.status.port = port;
-      this.status.url = `http://localhost:${port}`;
-
-      // Start the development server
-      await this.spawnProcess(port);
-
-    } catch (error) {
-      this.outputChannel.appendLine(`❌ Error starting preview: ${error}`);
-      vscode.window.showErrorMessage(`Failed to start preview: ${error}`);
-      this.status.isStarting = false;
-      this.updateStatusBar();
-    }
-  }
-
-  private async spawnProcess(port: number): Promise<void> {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot || !this.config) return;
-
-    const command = this.config.packageManager;
-    const args = this.config.packageManager === 'yarn' 
-      ? [this.config.script]
-      : ['run', this.config.script];
-
-    if (this.config.framework === 'fullstack') {
-      // Detect actual backend port from the project
-      let backendPort = 5000; // fallback
-      try {
-        const backendServerPath = path.join(workspaceRoot, 'backend', 'server.js');
-        if (fs.existsSync(backendServerPath)) {
-          const serverContent = fs.readFileSync(backendServerPath, 'utf8');
-          const portMatch = serverContent.match(/PORT = process\.env\.PORT \|\| (\d+)/);
-          if (portMatch) {
-            backendPort = parseInt(portMatch[1]);
-          }
-        }
-      } catch (error) {
-        this.outputChannel.appendLine(`⚠️ Could not detect backend port, using fallback: ${backendPort}`);
-      }
-      
-      this.outputChannel.appendLine(`Starting fullstack project with backend and frontend...`);
-      this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
-      this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
-      this.outputChannel.appendLine(`Script to run: ${this.config.script} (concurrently runs both servers)`);
-      this.outputChannel.appendLine(`Backend port: ${backendPort}, Frontend port: ${port}`);
-      this.outputChannel.appendLine(`Fullstack mode: Backend + Frontend running simultaneously`);
-    } else {
-      this.outputChannel.appendLine(`Starting ${this.config.framework} server on port ${port}...`);
-      this.outputChannel.appendLine(`Command: ${command} ${args.join(' ')}`);
-      this.outputChannel.appendLine(`Working directory: ${workspaceRoot}`);
-      this.outputChannel.appendLine(`Script to run: ${this.config.script}`);
-      this.outputChannel.appendLine(`Expected port: ${port}`);
-      if (this.config.framework === 'vite') {
-        this.outputChannel.appendLine(`Vite will try port ${port} first, then find alternatives if busy`);
-      }
-    }
-
-    const childProcess = child_process.spawn(command, args, {
-      cwd: workspaceRoot,
-      stdio: 'pipe',
-      shell: false  // Remove shell dependency to prevent terminal restart issues
-    });
-
-    this.status.process = childProcess;
-    
-    // Flag to prevent multiple ready signal calls
-    let serverReadyCalled = false;
-
-    // Capture output
-    childProcess.stdout?.on('data', (data) => {
-      const output = data.toString();
-      this.outputChannel.appendLine(`[STDOUT] ${output}`);
-      
-      // Check for ready signals
-      if (this.isServerReady(output, this.config?.framework) && !serverReadyCalled) {
-        serverReadyCalled = true;
-        this.outputChannel.appendLine('✅ Server ready signal detected!');
-        
-        // For Vite, extract the actual port from the output
-        if (this.config?.framework === 'vite') {
-          const portMatch = output.match(/Local:\s+http:\/\/localhost:(\d+)/);
-          if (portMatch) {
-            const actualPort = parseInt(portMatch[1]);
-            this.outputChannel.appendLine(`🔄 Vite is running on port ${actualPort}, updating configuration...`);
-            this.status.port = actualPort;
-            this.status.url = `http://localhost:${actualPort}`;
-          }
-        }
-        
-        this.onServerReady(this.status.port || port);
-      }
-    });
-
-    childProcess.stderr?.on('data', (data) => {
-      const output = data.toString();
-      this.outputChannel.appendLine(`[STDERR] ${output}`);
-    });
-
-    childProcess.on('error', (error) => {
-      this.outputChannel.appendLine(`[ERROR] Process error: ${error.message}`);
-    });
-
-    childProcess.on('close', (code) => {
-      this.outputChannel.appendLine(`[EXIT] Process exited with code ${code}`);
-      this.status.process = null;
-      this.status.isRunning = false;
-      this.status.isStarting = false;
-      this.updateStatusBar();
-    });
-
-    // Wait for server to be ready
-    // Note: We don't need to wait here since we're already listening for ready signals
-    // The server ready detection happens in the stdout listener
-    
-    // Add a fallback: if no ready signal detected within 10 seconds, check if port is responding
-    setTimeout(async () => {
-      if (this.status.isStarting && !this.status.isRunning) {
-        this.outputChannel.appendLine('⏰ No ready signal detected, checking if port is responding...');
-        try {
-          await this.checkPort(port);
-          this.outputChannel.appendLine('✅ Port is responding, server appears to be ready!');
-          this.onServerReady(port);
-        } catch (error) {
-          this.outputChannel.appendLine('⚠️ Port check failed, server may not be ready yet');
-        }
-      }
-    }, 10000);
-  }
-
-  private isServerReady(output: string, framework?: string): boolean {
-    const lowerOutput = output.toLowerCase();
-    
-    // Log the output for debugging
-    this.outputChannel.appendLine(`🔍 Checking server ready: "${output.trim()}" (Framework: ${framework})`);
-    
-    let isReady = false;
-    
-    switch (framework) {
-      case 'fullstack':
-        // For fullstack, we need both backend and frontend to be ready
-        isReady = (lowerOutput.includes('backend') && lowerOutput.includes('frontend')) ||
-                  (lowerOutput.includes('concurrently') && lowerOutput.includes('ready')) ||
-                  lowerOutput.includes('ready') || lowerOutput.includes('started') || lowerOutput.includes('listening') ||
-                  lowerOutput.includes('server running') || lowerOutput.includes('development server');
-        break;
-      case 'next':
-        isReady = lowerOutput.includes('ready') || lowerOutput.includes('started server') || 
-                  lowerOutput.includes('local:') || lowerOutput.includes('ready on');
-        break;
-      case 'vite':
-        isReady = lowerOutput.includes('ready') || lowerOutput.includes('local:') || 
-                  lowerOutput.includes('server running') || lowerOutput.includes('dev server running');
-        break;
-      case 'gatsby':
-        isReady = lowerOutput.includes('gatsby develop') && lowerOutput.includes('ready');
-        break;
-      case 'astro':
-        isReady = lowerOutput.includes('astro dev') && lowerOutput.includes('ready');
-        break;
-      case 'remix':
-        isReady = lowerOutput.includes('remix dev') && lowerOutput.includes('ready');
-        break;
-      default:
-        isReady = lowerOutput.includes('ready') || lowerOutput.includes('started') || 
-                  lowerOutput.includes('listening') || lowerOutput.includes('server running') ||
-                  lowerOutput.includes('development server') || lowerOutput.includes('local:');
-    }
-    
-    if (isReady) {
-      this.outputChannel.appendLine(`✅ Server ready signal detected for ${framework || 'unknown'} framework!`);
-    }
-    
-    return isReady;
-  }
-
-  private async waitForServer(port: number): Promise<void> {
-    const maxAttempts = 30; // 30 seconds
-    let attempts = 0;
-
-    while (attempts < maxAttempts) {
-      try {
-        await this.checkPort(port);
-        this.onServerReady(port);
-        return;
-      } catch (error) {
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-
-    throw new Error(`Server failed to start within ${maxAttempts} seconds`);
-  }
-
-  private checkPort(port: number): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const req = http.get(`http://localhost:${port}`, (res) => {
-        resolve();
-      });
-
-      req.on('error', () => {
-        reject(new Error('Port not responding'));
-      });
-
-      req.setTimeout(1000, () => {
-        req.destroy();
-        reject(new Error('Port check timeout'));
-      });
-    });
-  }
-
-  private onServerReady(port: number): void {
-    this.status.isRunning = true;
-    this.status.isStarting = false;
-    this.status.port = port;
-    this.status.url = `http://localhost:${port}`;
-    
-    // Update context key for command palette
-    vscode.commands.executeCommand('setContext', 'preview.isRunning', true);
-    
-    // Update UI manager with project status
-    this.uiManager.updateProjectStatus({
-      isRunning: true,
-      port: port,
-      url: `http://localhost:${port}`,
-      framework: this.config?.framework || 'unknown',
-      projectName: vscode.workspace.workspaceFolders?.[0]?.name || 'Project'
-    });
-    
-    this.updateStatusBar();
-    this.openPreview();
-    
-    this.outputChannel.appendLine(`✅ Preview server ready on http://localhost:${port}`);
-    
-    // Show notification with restart instructions
-    vscode.window.showInformationMessage(
-      `Preview started on port ${port}`,
-      'Restart Preview'
-    ).then(selection => {
-      if (selection === 'Restart Preview') {
+    );
+
+    // Register stop command (stop preview server)
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.stop', () => {
+        this.stopPreview();
+      })
+    );
+
+    // Register restart command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.restart', () => {
         this.restartPreview();
-      }
-    });
-  }
+      })
+    );
 
-  private async openPreview(): Promise<void> {
-    if (!this.status.url) return;
+    // Register create project command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.createProject', () => {
+        this.createNewProject();
+      })
+    );
 
-    const config = vscode.workspace.getConfiguration('preview');
-    const browserMode = config.get<string>('browserMode', 'in-editor');
+    // Register show templates command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.showTemplates', () => {
+        this.uiManager.showTemplateSelection();
+      })
+    );
 
-    this.outputChannel.appendLine(`🌐 Opening preview in ${browserMode} mode: ${this.status.url}`);
+    // Register show project control command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.showProjectControl', () => {
+        this.uiManager.showProjectControl();
+      })
+    );
 
-    if (browserMode === 'in-editor') {
-      try {
-        // Try to open in Simple Browser first
-        await vscode.commands.executeCommand('simpleBrowser.show', this.status.url);
-        this.outputChannel.appendLine('✅ Preview opened in Simple Browser');
-      } catch (error) {
-        this.outputChannel.appendLine(`⚠️ Simple Browser failed: ${error}`);
-        this.outputChannel.appendLine('🔄 Falling back to external browser...');
-        
-        // Fallback to external browser
+    // Register reload UI command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.reloadUI', () => {
+        this.uiManager.showAppropriateUI();
+      })
+    );
+
+    // Register refresh project configuration command
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.refreshConfig', async () => {
+        this.outputChannel.appendLine('🔄 Refreshing project configuration...');
         try {
-          await vscode.env.openExternal(vscode.Uri.parse(this.status.url));
-          this.outputChannel.appendLine('✅ Preview opened in external browser');
-        } catch (externalError) {
-          this.outputChannel.appendLine(`❌ External browser also failed: ${externalError}`);
-          vscode.window.showErrorMessage(`Failed to open preview. Please manually navigate to: ${this.status.url}`);
-        }
-      }
-    } else {
-      // Open in external browser
-      try {
-        await vscode.env.openExternal(vscode.Uri.parse(this.status.url));
-        this.outputChannel.appendLine('✅ Preview opened in external browser');
-      } catch (error) {
-        this.outputChannel.appendLine(`❌ External browser failed: ${error}`);
-        vscode.window.showErrorMessage(`Failed to open preview. Please manually navigate to: ${this.status.url}`);
-      }
-    }
-  }
-
-  private async stopPreview(): Promise<void> {
-    if (this.status.process) {
-      const process = this.status.process;
-      
-      return new Promise<void>((resolve) => {
-        let resolved = false;
-        
-        // Handle process exit
-        process.once('exit', () => {
-          if (resolved) return;
-          resolved = true;
-          
-          this.outputChannel.appendLine('✅ Main process exited gracefully');
-          this.status.process = null;
-          this.status.isRunning = false;
-          this.status.isStarting = false;
-          this.status.port = null;
-          this.status.url = null;
-          
-          // Update context key for command palette
-          vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
-          
-          // Reset UI manager status
-          this.uiManager.resetProjectStatus();
-          
+          this.config = await this.detectProjectConfig();
+          this.outputChannel.appendLine('✅ Project configuration refreshed successfully');
           this.updateStatusBar();
-          this.outputChannel.appendLine('Preview server stopped');
-          
-          // Show notification with restart option
-          vscode.window.showInformationMessage(
-            'Preview stopped',
-            'Restart Preview'
-          ).then(selection => {
-            if (selection === 'Restart Preview') {
-              this.restartPreview();
-            }
-          });
-          
-          resolve();
-        });
-        
-        // Try graceful shutdown first (Ctrl+C)
-        this.outputChannel.appendLine('🔄 Sending SIGINT (Ctrl+C) for graceful shutdown...');
-        process.kill('SIGINT');
-        
-        // Force kill after timeout if still running
-        setTimeout(() => {
-          if (resolved) return;
-          
-          if (process && !process.killed) {
-            this.outputChannel.appendLine('⚠️ Process still running, sending SIGTERM...');
-            process.kill('SIGTERM');
-            
-            // Final force kill if still running
-            setTimeout(() => {
-              if (resolved) return;
-              
-              if (process && !process.killed) {
-                this.outputChannel.appendLine('🚨 Process still running, sending SIGKILL...');
-                process.kill('SIGKILL');
-                
-                // Force resolve after SIGKILL
-                setTimeout(() => {
-                  if (resolved) return;
-                  this.outputChannel.appendLine('⚠️ Force resolving after SIGKILL...');
-                  resolved = true;
-                  resolve();
-                }, 1000);
-              } else {
-                // Process was killed, resolve
-                if (!resolved) {
-                  this.outputChannel.appendLine('⚠️ Process killed, resolving...');
-                  resolved = true;
-                  // Run cleanup before resolving
-                  this.cleanupRemainingProcesses().then(() => resolve());
-                }
-              }
-            }, 2000);
-          } else {
-            // Process was killed, resolve
-            if (!resolved) {
-              this.outputChannel.appendLine('⚠️ Process killed, resolving...');
-              resolved = true;
-              // Run cleanup before resolving
-              this.cleanupRemainingProcesses().then(() => resolve());
-            }
-          }
-        }, 3000);
-        
-        // Safety timeout - force resolve after 10 seconds
-        setTimeout(() => {
-          if (resolved) return;
-          this.outputChannel.appendLine('⚠️ Safety timeout reached, force resolving...');
-          resolved = true;
-          // Run cleanup before resolving
-          this.cleanupRemainingProcesses().then(() => resolve());
-        }, 10000);
-      });
-    } else {
-      // No process to stop, just update status
-      this.status.isRunning = false;
-      this.status.isStarting = false;
-      this.status.port = null;
-      this.status.url = null;
-      
-      // Update context key for command palette
-      vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
-      
-      // Reset UI manager status
-      this.uiManager.resetProjectStatus();
-      
-      this.updateStatusBar();
-      this.outputChannel.appendLine('Preview server stopped (no process was running)');
-      
-      // Show notification with restart option
-      vscode.window.showInformationMessage(
-        'Preview stopped',
-        'Restart Preview'
-      ).then(selection => {
-        if (selection === 'Restart Preview') {
-          this.restartPreview();
-        }
-      });
-    }
-    
-    // ALWAYS clean up any remaining processes on the known ports
-    await this.cleanupRemainingProcesses();
-  }
-
-  private async cleanupRemainingProcesses(): Promise<void> {
-    try {
-      this.outputChannel.appendLine('🧹 Cleaning up any remaining processes on known ports...');
-      
-      // Get the ports we were using
-      const ports = [];
-      if (this.status.port) ports.push(this.status.port);
-      if (this.config?.port) ports.push(this.config.port);
-      
-      // Add common development ports
-      const commonPorts = [3000, 3001, 5173, 5000, 8000];
-      ports.push(...commonPorts);
-      
-      // Remove duplicates
-      const uniquePorts = [...new Set(ports)];
-      
-      for (const port of uniquePorts) {
-        try {
-          // Find processes using this port
-          const findProcess = child_process.spawn('lsof', ['-ti', `:${port}`], {
-            stdio: 'pipe',
-            shell: true
-          });
-
-          let processIds = '';
-          findProcess.stdout?.on('data', (data) => {
-            processIds += data.toString();
-          });
-
-          await new Promise<void>((resolve) => {
-            findProcess.on('close', async (code) => {
-              if (code === 0 && processIds.trim()) {
-                const pids = processIds.trim().split('\n');
-                for (const pid of pids) {
-                  if (pid.trim()) {
-                    try {
-                      this.outputChannel.appendLine(`🔄 Killing remaining process ${pid.trim()} on port ${port}`);
-                      const killProcess = child_process.spawn('kill', ['-9', pid.trim()], {
-                        stdio: 'pipe',
-                        shell: true
-                      });
-                      
-                      await new Promise<void>((resolveKill) => {
-                        killProcess.on('close', () => {
-                          this.outputChannel.appendLine(`✅ Killed process ${pid.trim()} on port ${port}`);
-                          resolveKill();
-                        });
-                      });
-                    } catch (error) {
-                      this.outputChannel.appendLine(`⚠️ Error killing process ${pid}: ${error}`);
-                    }
-                  }
-                }
-              }
-              resolve();
-            });
-          });
+          vscode.window.showInformationMessage('Project configuration refreshed successfully!');
         } catch (error) {
-          this.outputChannel.appendLine(`⚠️ Error checking port ${port}: ${error}`);
+          this.outputChannel.appendLine(`❌ Failed to refresh project configuration: ${error}`);
+          vscode.window.showErrorMessage(`Failed to refresh project configuration: ${error}`);
         }
-      }
-      
-      // Also kill any remaining Node.js development processes
-      const nodeProcesses = ['node', 'nodemon', 'next', 'vite', 'concurrently'];
-      for (const processName of nodeProcesses) {
-        try {
-          this.outputChannel.appendLine(`🧹 Cleaning up remaining ${processName} processes...`);
-          const killProcess = child_process.spawn('pkill', ['-f', processName], {
-            stdio: 'pipe',
-            shell: true
-          });
+      })
+    );
 
-          await new Promise<void>((resolve) => {
-            killProcess.on('close', (code) => {
-              if (code === 0) {
-                this.outputChannel.appendLine(`✅ Cleaned up ${processName} processes`);
-              } else if (code === 1) {
-                this.outputChannel.appendLine(`ℹ️ No ${processName} processes found`);
-              }
-              resolve();
-            });
-          });
-        } catch (error) {
-          this.outputChannel.appendLine(`⚠️ Error cleaning up ${processName} processes: ${error}`);
-        }
-      }
-      
-      this.outputChannel.appendLine('✅ Process cleanup completed');
-    } catch (error) {
-      this.outputChannel.appendLine(`⚠️ Error during process cleanup: ${error}`);
-    }
-  }
+    // Keep the old commands for backward compatibility
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.startPreview', () => {
+        this.startPreview();
+      })
+    );
 
-  private async restartPreview(): Promise<void> {
-    await this.stopPreview();
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait a bit
-    await this.startPreview();
-  }
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.stopPreview', () => {
+        this.stopPreview();
+      })
+    );
 
-  private updateStatusBar(): void {
-    console.log('PreviewManager: updateStatusBar called');
-    
-    if (this.status.isStarting) {
-      this.statusBarItem.text = '⟳ Starting...';
-      this.statusBarItem.tooltip = 'Preview server is starting...\nClick to stop';
-      this.statusBarItem.command = 'pistachio.stop';
-    } else if (this.status.isRunning) {
-      this.statusBarItem.text = `● Preview: Running on :${this.status.port}`;
-      this.statusBarItem.tooltip = `Preview running on ${this.status.url}\nClick to stop | Cmd+Shift+P → "Preview: Restart" to restart`;
-      this.statusBarItem.command = 'pistachio-vibe.stop';
-    } else {
-      // Check if project exists
-      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      const hasProject = workspaceRoot && fs.existsSync(path.join(workspaceRoot, 'package.json'));
-      
-      console.log('PreviewManager: Workspace root:', workspaceRoot);
-      console.log('PreviewManager: Has project:', hasProject);
-      
-      if (!hasProject) {
-        this.statusBarItem.text = '🚀 New Project';
-        this.statusBarItem.tooltip = 'Click to create a new project from scratch';
-        this.statusBarItem.command = 'pistachio-vibe.createProject';
-        console.log('PreviewManager: Setting status to 🚀 New Project');
-      } else {
-        // Check what type of project we have
-        let projectType = 'generic';
-        if (this.config) {
-          projectType = this.config.framework;
-        } else {
-          // Try to detect from package.json
-          try {
-            const packageJsonPath = path.join(workspaceRoot, 'package.json');
-            const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-            const dependencies = { ...packageJson.dependencies, ...packageJson.devDependencies };
-            
-            if (dependencies.next) projectType = 'next';
-            else if (dependencies.vite) projectType = 'vite';
-            else if (dependencies.gatsby) projectType = 'gatsby';
-            else if (dependencies.astro) projectType = 'astro';
-            else if (dependencies['@remix-run/react']) projectType = 'remix';
-          } catch (error) {
-            console.log('PreviewManager: Error reading package.json:', error);
-          }
-        }
-        
-        this.statusBarItem.text = `▶ Preview (${projectType})`;
-        this.statusBarItem.tooltip = `Click to start ${projectType} preview`;
-        this.statusBarItem.command = 'pistachio-vibe.run';
-        console.log('PreviewManager: Setting status to ▶ Preview');
-      }
-    }
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.createNewProject', () => {
+        this.createNewProject();
+      })
+    );
 
-    this.statusBarItem.show();
-    console.log('PreviewManager: Status bar item shown with text:', this.statusBarItem.text);
+    this.contextKey.subscriptions.push(
+      vscode.commands.registerCommand('pistachio-vibe.openPreview', (url: string) => {
+        // Open preview in browser
+        vscode.env.openExternal(vscode.Uri.parse(url));
+      })
+    );
   }
 
   public dispose(): void {
-    this.stopPreview();
     this.statusBarItem.dispose();
-    this.outputChannel.dispose();
+    if (this.status.process) {
+      try {
+        // Graceful shutdown
+        this.status.process.kill('SIGTERM');
+        
+        // Force kill after a short delay if needed
+        setTimeout(() => {
+          if (this.status.process && !this.status.process.killed) {
+            this.status.process.kill('SIGKILL');
+          }
+        }, 1000);
+        
+        this.status.process = null;
+      } catch (error) {
+        this.outputChannel.appendLine(`⚠️ Error during cleanup: ${error}`);
+      }
+    }
   }
 }
 
-let previewManager: PreviewManager;
-
 export function activate(context: vscode.ExtensionContext): void {
-  console.log('Extension activating...');
-  previewManager = new PreviewManager(context);
+  console.log('Pistachio Vibe extension is now active!');
   
-  // Initialize after a short delay to ensure workspace is ready
-  setTimeout(() => {
-    previewManager.initialize();
-  }, 1000);
-  
+  const previewManager = new PreviewManager(context);
   context.subscriptions.push(previewManager);
-  console.log('Extension activated successfully');
+  
+  // Initialize after workspace is ready
+  vscode.workspace.onDidChangeWorkspaceFolders(() => {
+    previewManager.initialize();
+  });
+  
+  if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+    previewManager.initialize();
+  }
 }
 
 export function deactivate(): void {
-  console.log('Extension deactivating...');
-  if (previewManager) {
-    previewManager.dispose();
-  }
+  console.log('Pistachio Vibe extension is now deactivated!');
 }

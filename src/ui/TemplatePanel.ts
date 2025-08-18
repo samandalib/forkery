@@ -28,10 +28,15 @@ export class TemplatePanel {
       this.extensionUri = extensionUri;
     }
     
-    // Set webview options for security
+    // Ensure we have extensionUri
+    if (!this.extensionUri) {
+      this.extensionUri = vscode.extensions.getExtension('H10B.pistachio-vibe')?.extensionUri;
+    }
+    
+    // Set webview options for security - include extensionUri for local resources
     this.view.webview.options = {
       enableScripts: true,
-      localResourceRoots: []
+      localResourceRoots: this.extensionUri ? [this.extensionUri] : []
     };
     console.log('TemplatePanel: Webview options set');
     
@@ -83,7 +88,7 @@ export class TemplatePanel {
         dependencies: ['vite', 'react', 'react-dom']
       },
       'nextjs-app': {
-        command: 'npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes --use-npm',
+        command: 'npx create-next-app@latest my-nextjs-app --typescript --tailwind --eslint --app --src-dir --import-alias "@/*" --yes --use-npm',
         port: 3000,
         dependencies: ['next', 'react', 'react-dom']
       },
@@ -774,11 +779,11 @@ export default function Home() {
     try {
       progress.report({ message: 'Creating Next.js project...' });
       
-      // Create Next.js app in the current workspace
+      // Create Next.js app in a subdirectory to avoid conflicts
       await new Promise<void>((resolve, reject) => {
         const childProcess = child_process.spawn('npx', [
           'create-next-app@latest', 
-          '.', 
+          'my-nextjs-app', 
           '--typescript', 
           '--tailwind', 
           '--eslint', 
@@ -832,6 +837,36 @@ export default function Home() {
         });
       });
 
+      progress.report({ message: 'Moving Next.js files to workspace root...' });
+      
+      // Move all files from my-nextjs-app to workspace root
+      const nextAppDir = path.join(workspaceRoot, 'my-nextjs-app');
+      if (fs.existsSync(nextAppDir)) {
+        const files = fs.readdirSync(nextAppDir);
+        for (const file of files) {
+          const sourcePath = path.join(nextAppDir, file);
+          const targetPath = path.join(workspaceRoot, file);
+          
+          if (fs.statSync(sourcePath).isDirectory()) {
+            // Move directory
+            if (fs.existsSync(targetPath)) {
+              fs.rmSync(targetPath, { recursive: true, force: true });
+            }
+            fs.renameSync(sourcePath, targetPath);
+          } else {
+            // Move file
+            if (fs.existsSync(targetPath)) {
+              fs.unlinkSync(targetPath);
+            }
+            fs.renameSync(sourcePath, targetPath);
+          }
+        }
+        
+        // Remove the empty my-nextjs-app directory
+        fs.rmdirSync(nextAppDir);
+        progress.report({ message: 'Next.js files moved to workspace root' });
+      }
+      
       progress.report({ message: 'Next.js project created successfully!' });
       
       vscode.window.showInformationMessage(
@@ -1059,6 +1094,11 @@ export default defineConfig({
             border-radius: 12px;
             overflow: hidden;
             box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            min-height: 60px;
+            background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           
           .pistachio-banner img {
@@ -1066,6 +1106,21 @@ export default defineConfig({
             height: auto;
             max-width: 100%;
             display: block;
+            border-radius: 12px;
+          }
+          
+          .pistachio-banner img:not([src]), 
+          .pistachio-banner img[src=""] {
+            display: none;
+          }
+          
+          .pistachio-banner:has(img:not([src])):before,
+          .pistachio-banner:has(img[src=""]):before {
+            content: "🚀 Pistachio Vibe";
+            color: #ffffff;
+            font-size: 24px;
+            font-weight: 600;
+            text-align: center;
           }
           
           .header {
@@ -1235,16 +1290,43 @@ export default defineConfig({
             justify-content: flex-start;
           }
           
+          .pill-categories {
+            margin-top: 20px;
+          }
+          
+          .pill-category {
+            margin-bottom: 12px;
+          }
+          
+          .pill-category-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #b0b0b0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            display: block;
+          }
+          
+          .pill-category-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+          }
+          
           /* Pill base styles */
-          .pill-container span {
+          .pill-container span,
+          .pill-category-items span {
             display: inline-block;
             padding: 4px 8px;
             border-radius: 12px;
             font-size: 9px;
-            font-weight: 600;
+            font-weight: normal;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            border: 2px solid;
+            border: 1px solid #666666;
+            border-color: #666666;
+            color: #cccccc;
             margin-right: 6px;
             transition: all 0.2s ease;
           }
@@ -1270,7 +1352,7 @@ export default defineConfig({
             border-color: #28a745 !important;
           }
           
-          /* Build type pills - Orange */
+          /* Build type pills - Neutral Gray */
           .build-website,
           .build-dashboard,
           .build-ecommerce,
@@ -1279,12 +1361,13 @@ export default defineConfig({
           .build-blog,
           .build-landing,
           .build-admin {
-            color: #fd7e14 !important;
-            border-color: #fd7e14 !important;
+            color: #8e8e93 !important;
+            border-color: #8e8e93 !important;
           }
           
           /* Hover effects for pills */
-          .pill-container span:hover {
+          .pill-container span:hover,
+          .pill-category-items span:hover {
             background: currentColor;
             color: #ffffff !important;
           }
@@ -1316,7 +1399,7 @@ export default defineConfig({
           .build-blog:hover,
           .build-landing:hover,
           .build-admin:hover {
-            background: #fd7e14 !important;
+            background: #8e8e93 !important;
             color: #ffffff !important;
           }
           
@@ -1412,11 +1495,11 @@ export default defineConfig({
         
         <!-- Pistachio Banner -->
         <div class="pistachio-banner">
-          <img src="${this.extensionUri && this.view ? this.view.webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, 'assets', 'banners', 'pistachio-banner-1280x200.png')) : ''}" alt="Pistachio: Visual Vibe coding in IDE" />
+          <img src="${this.getBannerImageUri()}" alt="Pistachio: Visual Vibe coding in IDE" />
         </div>
         
         <div class="header">
-          <p>Click on a template card to create your project instantly - no additional steps required!</p>
+          <p>Pick your stack to start a fresh project</p>
         </div>
         
         <div class="category">
@@ -1441,14 +1524,29 @@ export default defineConfig({
                 <strong>Perfect for:</strong> Building full web applications, APIs with user interfaces, or when you need both server and client code.
               </div>
               
-              <div class="pill-container">
-                <span class="complexity-medium-app">Medium App</span>
-                <span class="benefit-ecosystem">Rich Ecosystem</span>
-                <span class="benefit-fast-dev">Fast Dev</span>
-                <span class="benefit-scalable">Scalable</span>
-                <span class="build-dashboard">Dashboard</span>
-                <span class="build-api">API</span>
-                <span class="build-ecommerce">E-commerce</span>
+              <div class="pill-categories">
+                <div class="pill-category">
+                  <span class="pill-category-title">App Complexity:</span>
+                  <div class="pill-category-items">
+                    <span class="complexity-medium-app">Medium</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Known For:</span>
+                  <div class="pill-category-items">
+                    <span class="benefit-ecosystem">Rich Ecosystem</span>
+                    <span class="benefit-fast-dev">Fast Dev</span>
+                    <span class="benefit-scalable">Scalable</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Good For:</span>
+                  <div class="pill-category-items">
+                    <span class="build-dashboard">Dashboard</span>
+                    <span class="build-api">API</span>
+                    <span class="build-ecommerce">E-commerce</span>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -1470,15 +1568,30 @@ export default defineConfig({
                 <strong>Perfect for:</strong> Building production-ready web applications, when you need SEO optimization, or complex routing.
               </div>
               
-              <div class="pill-container">
-                <span class="complexity-complex-app">Complex App</span>
-                <span class="benefit-seo">SEO Friendly</span>
-                <span class="benefit-performance">Great Performance</span>
-                <span class="benefit-scalable">Scalable</span>
-                <span class="build-website">Website</span>
-                <span class="build-ecommerce">E-commerce</span>
-                <span class="build-blog">Blog</span>
-                <span class="build-dashboard">Dashboard</span>
+              <div class="pill-categories">
+                <div class="pill-category">
+                  <span class="pill-category-title">App Complexity:</span>
+                  <div class="pill-category-items">
+                    <span class="complexity-complex-app">Complex</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Known For:</span>
+                  <div class="pill-category-items">
+                    <span class="benefit-seo">SEO Friendly</span>
+                    <span class="benefit-performance">Great Performance</span>
+                    <span class="benefit-scalable">Scalable</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Good For:</span>
+                  <div class="pill-category-items">
+                    <span class="build-website">Website</span>
+                    <span class="build-ecommerce">E-commerce</span>
+                    <span class="build-blog">Blog</span>
+                    <span class="build-dashboard">Dashboard</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1497,13 +1610,28 @@ export default defineConfig({
                 <strong>Perfect for:</strong> Learning React, building simple user interfaces, or when you only need a frontend application.
               </div>
               
-              <div class="pill-container">
-                <span class="complexity-simple-app">Simple App</span>
-                <span class="benefit-performance">Great Performance</span>
-                <span class="benefit-deploy">Easy to Deploy</span>
-                <span class="build-portfolio">Portfolio</span>
-                <span class="build-website">Website</span>
-                <span class="build-landing">Landing</span>
+              <div class="pill-categories">
+                <div class="pill-category">
+                  <span class="pill-category-title">App Complexity:</span>
+                  <div class="pill-category-items">
+                    <span class="complexity-simple-app">Simple</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Known For:</span>
+                  <div class="pill-category-items">
+                    <span class="benefit-performance">Great Performance</span>
+                    <span class="benefit-deploy">Easy to Deploy</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Good For:</span>
+                  <div class="pill-category-items">
+                    <span class="build-portfolio">Portfolio</span>
+                    <span class="build-website">Website</span>
+                    <span class="build-landing">Landing</span>
+                  </div>
+                </div>
               </div>
             </div>
             
@@ -1516,15 +1644,30 @@ export default defineConfig({
                 <strong>Perfect for:</strong> Building professional websites, when you need SEO, or want built-in performance features.
               </div>
               
-              <div class="pill-container">
-                <span class="complexity-medium-app">Medium App</span>
-                <span class="benefit-seo">SEO Friendly</span>
-                <span class="benefit-performance">Great Performance</span>
-                <span class="benefit-ecosystem">Rich Ecosystem</span>
-                <span class="build-website">Website</span>
-                <span class="build-portfolio">Portfolio</span>
-                <span class="build-blog">Blog</span>
-                <span class="build-landing">Landing</span>
+              <div class="pill-categories">
+                <div class="pill-category">
+                  <span class="pill-category-title">App Complexity:</span>
+                  <div class="pill-category-items">
+                    <span class="complexity-medium-app">Medium</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Known For:</span>
+                  <div class="pill-category-items">
+                    <span class="benefit-seo">SEO Friendly</span>
+                    <span class="benefit-performance">Great Performance</span>
+                    <span class="benefit-ecosystem">Rich Ecosystem</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Good For:</span>
+                  <div class="pill-category-items">
+                    <span class="build-website">Website</span>
+                    <span class="build-portfolio">Portfolio</span>
+                    <span class="build-blog">Blog</span>
+                    <span class="build-landing">Landing</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1543,13 +1686,28 @@ export default defineConfig({
                 <strong>Perfect for:</strong> Learning web development, building simple websites, or when you just need basic HTML pages.
               </div>
               
-              <div class="pill-container">
-                <span class="complexity-simple-app">Simple App</span>
-                <span class="benefit-deploy">Easy to Deploy</span>
-                <span class="complexity-simple-app">Great Performance</span>
-                <span class="build-portfolio">Portfolio</span>
-                <span class="build-website">Website</span>
-                <span class="build-landing">Landing</span>
+              <div class="pill-categories">
+                <div class="pill-category">
+                  <span class="pill-category-title">App Complexity:</span>
+                  <div class="pill-category-items">
+                    <span class="complexity-simple-app">Simple</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Known For:</span>
+                  <div class="pill-category-items">
+                    <span class="benefit-deploy">Easy to Deploy</span>
+                    <span class="benefit-performance">Great Performance</span>
+                  </div>
+                </div>
+                <div class="pill-category">
+                  <span class="pill-category-title">Good For:</span>
+                  <div class="pill-category-items">
+                    <span class="build-portfolio">Portfolio</span>
+                    <span class="build-website">Website</span>
+                    <span class="build-landing">Landing</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1617,13 +1775,65 @@ export default defineConfig({
               hideProgress();
             }
           });
+          
+          // Handle banner image loading
+          document.addEventListener('DOMContentLoaded', function() {
+            const bannerImg = document.querySelector('.pistachio-banner img');
+            if (bannerImg) {
+              bannerImg.onerror = function() {
+                console.log('Banner image failed to load, using fallback');
+                this.style.display = 'none';
+                const banner = this.parentElement;
+                if (banner && !banner.textContent.trim()) {
+                  banner.innerHTML = '<div style="color: #ffffff; font-size: 24px; font-weight: 600;">🚀 Pistachio Vibe</div>';
+                }
+              };
+              
+              bannerImg.onload = function() {
+                console.log('Banner image loaded successfully');
+              };
+            }
+          });
         </script>
       </body>
       </html>
     `;
   }
 
-
-
-
+  /**
+   * Get the banner image URI for the webview
+   */
+  private getBannerImageUri(): string {
+    // Try to get the banner image URI with proper fallback
+    try {
+      console.log('TemplatePanel: getBannerImageUri called');
+      console.log('TemplatePanel: extensionUri:', this.extensionUri);
+      console.log('TemplatePanel: view:', this.view);
+      
+      if (this.extensionUri && this.view) {
+        const bannerPath = vscode.Uri.joinPath(this.extensionUri, 'assets', 'banners', 'pistachio-banner-1280x200.png');
+        const webviewUri = this.view.webview.asWebviewUri(bannerPath).toString();
+        console.log('TemplatePanel: Generated webview URI:', webviewUri);
+        return webviewUri;
+      }
+      
+      // Fallback: Try to get extension URI directly
+      console.log('TemplatePanel: Trying fallback extension URI lookup');
+      const extensionUri = vscode.extensions.getExtension('H10B.pistachio-vibe')?.extensionUri;
+      console.log('TemplatePanel: Fallback extensionUri:', extensionUri);
+      
+      if (extensionUri && this.view) {
+        const bannerPath = vscode.Uri.joinPath(extensionUri, 'assets', 'banners', 'pistachio-banner-1280x200.png');
+        const webviewUri = this.view.webview.asWebviewUri(bannerPath).toString();
+        console.log('TemplatePanel: Fallback webview URI:', webviewUri);
+        return webviewUri;
+      }
+      
+      console.log('TemplatePanel: No valid URI found, returning empty string');
+      return '';
+    } catch (error) {
+      console.log('TemplatePanel: Error getting banner image URI:', error);
+      return '';
+    }
+  }
 }

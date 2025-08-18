@@ -29,16 +29,23 @@ Pistachio Vibe transforms how you create and preview web applications by removin
 - **Real-time Feedback** - Always know what's running and where
 - **Smart Port Management** - No more port conflicts or manual configuration
 
-## 🎉 **Latest Version: 1.1.0-beta (Most Stable Release)**
+## 🎉 **Latest Version: 1.1.1-beta-hybrid (Hybrid Architecture)**
 
-**Version 1.1.0-beta** represents the **most stable and production-ready release** of Pistachio Vibe to date. This version is ready for public distribution and provides:
+**Version 1.1.1-beta-hybrid** represents the **most advanced and reliable release** of Pistachio Vibe, combining the best features from multiple architectural approaches:
 
-- **✅ Zero Critical Bugs** - All core functionality working perfectly
-- **✅ Production Stability** - Tested across multiple scenarios and environments  
-- **✅ Complete Feature Set** - All planned features implemented and working
-- **✅ Professional Quality** - Clean UI, proper error handling, user-friendly experience
+- **✅ Enhanced Reliability** - v1.0.0 preview functionality with proven Simple Browser
+- **✅ Modern UI/UX** - Enhanced TemplatePanel with visual improvements and organization
+- **✅ Working Stop Button** - Multi-layer process termination that actually works
+- **✅ Cross-Platform Support** - Robust process management for all operating systems
+- **✅ User Configuration** - Flexible browser mode settings for user preference
 
-**Download**: `pistachio-vibe-1.1.0-beta.vsix` (149.98 KB)
+**Download**: `pistachio-vibe-1.1.1-beta-stopfix.vsix` (146.67 KB)
+
+### **🏗️ Hybrid Architecture Benefits:**
+- **🔄 Proven Preview**: Uses VS Code's optimized Simple Browser
+- **🎨 Enhanced UI**: Organized template categories and refined visual design
+- **🛑 Reliable Stop**: Multi-layer process termination with verification
+- **⚙️ User Control**: Configurable browser preferences
 
 ---
 
@@ -55,7 +62,7 @@ Pistachio Vibe transforms how you create and preview web applications by removin
 ## 🚀 Quick Start
 
 ### **1. Install Pistachio**
-- Download the latest stable version: `pistachio-vibe-1.1.0-beta.vsix`
+- Download the latest hybrid version: `pistachio-vibe-1.1.1-beta-stopfix.vsix`
 - Install in your editor: `Cmd+Shift+P` → "Extensions: Install from VSIX"
 - Restart if prompted
 
@@ -68,6 +75,12 @@ Pistachio Vibe transforms how you create and preview web applications by removin
 - Preview opens automatically in your editor or browser
 - Changes update in real-time
 - No terminal knowledge required
+
+### **4. Configure Your Preferences (Optional)**
+- Set preview browser mode: `Settings` → `Preview: Browser Mode`
+  - `in-editor`: Use VS Code's built-in Simple Browser (default)
+  - `external`: Use your system's default browser
+- All other settings work automatically
 
 ## 🎨 Supported Frameworks
 

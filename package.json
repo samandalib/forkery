@@ -2,7 +2,7 @@
   "name": "pistachio-vibe",
   "displayName": "Pistachio Vibe",
   "description": "Visual Vibe coding in IDE - one-click local previews with zero terminal knowledge required",
-      "version": "1.1.0-beta",
+      "version": "1.1.1-beta",
   "publisher": "H10B",
   "license": "MIT",
   "repository": {
@@ -102,6 +102,12 @@
       {
         "command": "pistachio-vibe.reloadUI",
         "title": "Pistachio: Reload UI (Dev)",
+        "category": "Pistachio",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "pistachio-vibe.refreshConfig",
+        "title": "Pistachio Vibe: Refresh Project Configuration",
         "category": "Pistachio",
         "icon": "$(refresh)"
       }
