@@ -55,8 +55,9 @@ Welcome to the comprehensive documentation for **Pistachio Vibe: Visual App Crea
 
 ### **🔧 For Technical Deep Dives**
 1. **UI Issues**: [UI_TROUBLESHOOTING.md](./03-Technical/UI_TROUBLESHOOTING.md) - Debug UI problems
-2. **Port Problems**: [PORT_HANDLING.md](./03-Technical/PORT_HANDLING.md) - Understand port management
-3. **Architecture**: [UI_ARCHITECTURE_LEARNINGS.md](./03-Technical/UI_ARCHITECTURE_LEARNINGS.md) - Learn from development
+2. **Status Fixes**: [PROJECT_CONTROL_PANEL_STATUS_FIX.md](./03-Technical/PROJECT_CONTROL_PANEL_STATUS_FIX.md) - **🚨 CRITICAL FIX** - UI status synchronization issues
+3. **Port Problems**: [PORT_HANDLING.md](./03-Technical/PORT_HANDLING.md) - Understand port management
+4. **Architecture**: [UI_ARCHITECTURE_LEARNINGS.md](./03-Technical/UI_ARCHITECTURE_LEARNINGS.md) - Learn from development
 
 ### **📦 For Publishing & Releases**
 1. **Publishing**: [PUBLISHING_CHECKLIST.md](./04-Publishing/PUBLISHING_CHECKLIST.md) - Complete release workflow
