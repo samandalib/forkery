@@ -121,9 +121,9 @@ export class UIManager {
    */
   private setProjectControlView(): void {
     console.log('UIManager: Setting project control view (existing project)');
-    vscode.commands.executeCommand('setContext', 'preview.isRunning', true);
+    vscode.commands.executeCommand('setContext', 'preview.isRunning', false); // Project exists but server not running yet
     vscode.commands.executeCommand('setContext', 'preview.hasProject', true);
-    console.log('UIManager: Context keys set - preview.isRunning: true, preview.hasProject: true');
+    console.log('UIManager: Context keys set - preview.isRunning: false, preview.hasProject: true');
   }
 
   /**
@@ -175,11 +175,17 @@ export class UIManager {
   public updateProjectStatus(status: any): void {
     this.currentProjectStatus = status;
     
-    // Set the context key that controls which view is shown
+    console.log('UIManager: updateProjectStatus called with:', status);
+    
+    // Set the context keys that control which view is shown
     vscode.commands.executeCommand('setContext', 'preview.isRunning', status.isRunning);
+    vscode.commands.executeCommand('setContext', 'preview.hasProject', true); // Always true when we have project status
+    
+    console.log('UIManager: Context keys set - preview.isRunning:', status.isRunning, 'preview.hasProject: true');
     
     // Send status update to Project Control Panel if it exists
     if (ProjectControlPanel.currentView) {
+      console.log('UIManager: Sending status update to ProjectControlPanel');
       ProjectControlPanel.currentView.updateStatus({
         isRunning: status.isRunning,
         port: status.port,
@@ -187,6 +193,8 @@ export class UIManager {
         framework: status.framework,
         projectName: status.projectName
       });
+    } else {
+      console.log('UIManager: No ProjectControlPanel.currentView available');
     }
   }
 
@@ -211,7 +219,12 @@ export class UIManager {
   public resetProjectStatus(): void {
     this.currentProjectStatus = null;
     
-    // Set the context key to false when project is stopped
+    console.log('UIManager: resetProjectStatus called, clearing project status');
+    
+    // Set both context keys to false when project is stopped
     vscode.commands.executeCommand('setContext', 'preview.isRunning', false);
+    vscode.commands.executeCommand('setContext', 'preview.hasProject', false);
+    
+    console.log('UIManager: Context keys cleared - preview.isRunning: false, preview.hasProject: false');
   }
 }

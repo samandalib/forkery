@@ -62,8 +62,11 @@ export class ProjectControlPanel {
     }
 
     public setView(webviewView: vscode.WebviewView) {
+        console.log('ProjectControlPanel: setView called with webviewView:', webviewView);
         ProjectControlPanel.currentView = this;
         (this as any)._view = webviewView;
+        
+        console.log('ProjectControlPanel: Webview view set up, setting options and HTML');
         
         // Set webview options
         webviewView.webview.options = {
@@ -74,36 +77,48 @@ export class ProjectControlPanel {
         // Set HTML content
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
         
+        console.log('ProjectControlPanel: HTML content set, setting up message handler');
+        
         // Handle messages from webview
         webviewView.webview.onDidReceiveMessage(
             message => {
+                console.log('ProjectControlPanel: Received message from view webview:', message);
                 switch (message.command) {
                     case 'startServer':
+                        console.log('ProjectControlPanel: Handling startServer command');
                         this.startServer();
                         break;
 
                     case 'stopServer':
+                        console.log('ProjectControlPanel: Handling stopServer command');
                         this.stopServer();
                         break;
 
                     case 'getProjectInfo':
+                        console.log('ProjectControlPanel: Handling getProjectInfo command');
                         this.getProjectInfo();
                         break;
                     case 'runDeploymentDiagnostic':
+                        console.log('ProjectControlPanel: Handling runDeploymentDiagnostic command');
                         this.runDeploymentDiagnostic();
+                        break;
+                    default:
+                        console.log('ProjectControlPanel: Unknown command from view webview:', message.command);
                         break;
                 }
             },
             null,
             this._disposables
         );
+        
+        console.log('ProjectControlPanel: setView completed successfully');
     }
 
     private constructor(panelOrExtensionUri: vscode.WebviewPanel | vscode.Uri) {
         if ('webview' in panelOrExtensionUri) {
             // This is a WebviewPanel
             this._panel = panelOrExtensionUri;
-            this._extensionUri = vscode.extensions.getExtension('hesamandalib.forkery')?.extensionUri || vscode.Uri.file(__dirname);
+            this._extensionUri = vscode.extensions.getExtension('H10B.pistachio-vibe')?.extensionUri || vscode.Uri.file(__dirname);
             
             this._update();
             this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
@@ -132,8 +147,9 @@ export class ProjectControlPanel {
                 this._disposables
             );
         } else {
-            // This is just an extensionUri
+            // This is just an extensionUri - will be set up as a view later
             this._extensionUri = panelOrExtensionUri;
+            console.log('ProjectControlPanel: Created as view provider, waiting for setView call');
         }
         
         // Ensure we have a valid extension URI
@@ -560,7 +576,8 @@ export class ProjectControlPanel {
                                 updateProjectInfo(message.data);
                                 break;
                             case 'updateStatus':
-                                console.log('ProjectControlPanel: Processing updateStatus');
+                                console.log('ProjectControlPanel: Processing updateStatus with data:', message.data);
+                                console.log('ProjectControlPanel: Status value:', message.data.status);
                                 updateProjectStatus(message.data.status);
                                 break;
                             case 'diagnosticComplete':
@@ -568,6 +585,9 @@ export class ProjectControlPanel {
                                 showDiagnosticResults(message.data);
                                 // Stop the button loading state
                                 setButtonLoading('deployment-diagnostic-btn', false);
+                                break;
+                            default:
+                                console.log('ProjectControlPanel: Unknown message command:', message.command);
                                 break;
                         }
                     });
@@ -601,6 +621,9 @@ export class ProjectControlPanel {
                             statusBadge.classList.add(\`status-\${status}\`);
                             // Update the text
                             statusBadge.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                            console.log('ProjectControlPanel: Status badge updated to:', status);
+                        } else {
+                            console.error('ProjectControlPanel: Status badge element not found!');
                         }
                         
                         // Update button states based on status
@@ -692,8 +715,11 @@ export class ProjectControlPanel {
                     // Request project info on load
                     vscode.postMessage({ command: 'getProjectInfo' });
                     
-                    // Initialize status on load
-                    updateProjectStatus('stopped');
+                    // Initialize status on load - but wait a bit for the webview to be ready
+                    setTimeout(() => {
+                        updateProjectStatus('stopped');
+                        console.log('ProjectControlPanel: Initial status set to stopped');
+                    }, 100);
 
                     // Add diagnostic results functionality
                     function showDiagnosticResults(diagnostic) {
@@ -1018,6 +1044,8 @@ export class ProjectControlPanel {
     }
 
     public updateStatus(status: any) {
+        console.log('ProjectControlPanel: updateStatus called with:', status);
+        
         // Determine the status string based on the status object
         let statusString = 'stopped';
         if (status.isRunning) {
@@ -1026,25 +1054,39 @@ export class ProjectControlPanel {
             statusString = 'starting';
         }
         
+        console.log('ProjectControlPanel: Converting status to string:', statusString);
+        
         const message = {
             command: 'updateStatus',
             data: { status: statusString }
         };
 
+        console.log('ProjectControlPanel: Sending message to webview:', message);
+
         // Send to panel if it exists
         if (this._panel) {
+            console.log('ProjectControlPanel: Sending to panel webview');
             this._panel.webview.postMessage(message);
+        } else {
+            console.log('ProjectControlPanel: No panel webview available');
         }
         
         // Send to view if it exists
         if (this._view) {
+            console.log('ProjectControlPanel: Sending to view webview');
             this._view.webview.postMessage(message);
+        } else {
+            console.log('ProjectControlPanel: No view webview available');
         }
         
         // Also update project info if available
         if (status.isRunning) {
+            console.log('ProjectControlPanel: Getting project info for running project');
             this.getProjectInfo();
         }
+        
+        // Log the current state for debugging
+        console.log('ProjectControlPanel: Current state - Panel:', !!this._panel, 'View:', !!this._view);
     }
 
     public dispose() {
