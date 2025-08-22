@@ -20,6 +20,7 @@ export class ProjectControlPanel {
     private readonly _view?: vscode.WebviewView;
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
+    private currentProjectStatus: any = null;
 
     public static createOrShow(extensionUri: vscode.Uri) {
         const column = vscode.window.activeTextEditor
@@ -211,7 +212,7 @@ export class ProjectControlPanel {
 
                     /* Header */
                     .header {
-                        background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);
+                        background: transparent;
                         padding: 24px 32px;
                         border-bottom: 1px solid #404040;
                         position: sticky;
@@ -250,8 +251,9 @@ export class ProjectControlPanel {
 
                     .status-header {
                         display: flex;
-                        align-items: center;
-                        justify-content: space-between;
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 12px;
                         margin-bottom: 20px;
                     }
 
@@ -262,12 +264,13 @@ export class ProjectControlPanel {
                     }
 
                     .status-badge {
-                        padding: 4px 12px;
-                        border-radius: 16px;
-                        font-size: 12px;
+                        padding: 3px 10px;
+                        border-radius: 12px;
+                        font-size: 10px;
                         font-weight: 500;
                         text-transform: uppercase;
                         letter-spacing: 0.5px;
+                        align-self: flex-start;
                     }
 
                     .status-running {
@@ -453,6 +456,174 @@ export class ProjectControlPanel {
                         }
                     }
 
+                    /* Super narrow responsive design - icon only */
+                    @media (max-width: 200px) {
+                        .container {
+                            padding: 2px;
+                        }
+                        
+                        .header {
+                            padding: 4px 6px;
+                        }
+                        
+                        .header h1,
+                        .header p {
+                            display: none;
+                        }
+                        
+                        .status-section {
+                            padding: 8px;
+                        }
+                        
+                        .status-title {
+                            display: none;
+                        }
+                        
+                        .btn .btn-text {
+                            display: none;
+                        }
+                        
+                        .btn {
+                            padding: 4px;
+                            min-width: 32px;
+                            width: 32px;
+                            height: 32px;
+                            justify-content: center;
+                        }
+                        
+                        .btn.deployment-diagnostic {
+                            min-width: 32px;
+                            width: 32px;
+                            height: 32px;
+                        }
+                        
+                        .project-info-compact {
+                            display: none;
+                        }
+                        
+                        .control-buttons {
+                            gap: 4px;
+                            justify-content: center;
+                        }
+                    }
+
+                    /* Narrow responsive design - minimal text */
+                    @media (min-width: 201px) and (max-width: 350px) {
+                        .container {
+                            padding: 6px;
+                        }
+                        
+                        .header {
+                            padding: 6px 8px;
+                        }
+                        
+                        .header h1,
+                        .header p {
+                            display: none;
+                        }
+                        
+                        .status-section {
+                            padding: 12px;
+                        }
+                        
+                        .status-title {
+                            display: none;
+                        }
+                        
+                        .btn .btn-text {
+                            display: none;
+                        }
+                        
+                        .btn {
+                            padding: 6px;
+                            min-width: 36px;
+                            width: 36px;
+                            height: 36px;
+                            justify-content: center;
+                        }
+                        
+                        .btn.deployment-diagnostic {
+                            min-width: 36px;
+                            width: 36px;
+                            height: 36px;
+                        }
+                        
+                        .project-info-compact {
+                            display: none;
+                        }
+                        
+                        .control-buttons {
+                            gap: 6px;
+                            justify-content: center;
+                        }
+                    }
+
+                    /* Medium narrow responsive design - some text */
+                    @media (min-width: 351px) and (max-width: 500px) {
+                        .container {
+                            padding: 8px;
+                        }
+                        
+                        .header {
+                            padding: 8px 12px;
+                        }
+                        
+                        .header h1 {
+                            font-size: 18px;
+                        }
+                        
+                        .header p {
+                            display: none;
+                        }
+                        
+                        .status-section {
+                            padding: 16px;
+                        }
+                        
+                        .btn .btn-text {
+                            font-size: 12px;
+                        }
+                        
+                        .btn {
+                            padding: 8px 12px;
+                            min-width: auto;
+                        }
+                        
+                        .project-info-compact {
+                            display: none;
+                        }
+                    }
+
+                    /* Standard responsive design */
+                    @media (min-width: 501px) and (max-width: 768px) {
+                        .container {
+                            padding: 16px;
+                        }
+                        
+                        .header {
+                            padding: 16px 20px;
+                        }
+                        
+                        .header h1 {
+                            font-size: 24px;
+                        }
+                        
+                        .control-buttons {
+                            flex-direction: column;
+                        }
+                        
+                        .btn {
+                            width: 100%;
+                            justify-content: center;
+                        }
+                        
+                        .project-info-compact {
+                            flex-direction: column;
+                            gap: 12px;
+                            align-items: flex-start;
+                        }
+                    }
+
                     /* Animations */
                     @keyframes fadeIn {
                         from { opacity: 0; transform: translateY(20px); }
@@ -481,8 +652,8 @@ export class ProjectControlPanel {
                     <!-- Project Status Section -->
                     <div class="status-section fade-in">
                         <div class="status-header">
-                            <div class="status-title">Project Status</div>
                             <div class="status-badge status-stopped" id="status-badge">Stopped</div>
+                            <div class="status-title">Project Status</div>
                         </div>
                         
                         <div class="control-buttons">
@@ -873,23 +1044,20 @@ export class ProjectControlPanel {
                 const framework = this.detectFramework(packageJson);
                 const port = this.detectPort(packageJson);
                 
-                // Don't override the current status - just send port info
+                // Send dynamic port info based on server status
                 this.sendProjectInfo({
-                    port: port
-                    // Removed status: 'stopped' to prevent overriding actual server status
+                    port: this.getPortDisplayValue()
                 });
             } else {
-                // No package.json found
-                this.sendProjectInfo({
-                    port: 'N/A'
-                    // Removed status: 'stopped' to prevent overriding actual server status
-                });
+                            // No package.json found
+            this.sendProjectInfo({
+                port: this.getPortDisplayValue()
+            });
             }
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to get project info: ${error}`);
             this.sendProjectInfo({
-                port: 'N/A'
-                // Removed status: 'stopped' to prevent overriding actual server status
+                port: this.getPortDisplayValue()
             });
         }
     }
@@ -1026,6 +1194,21 @@ export class ProjectControlPanel {
         return '3000'; // General default port
     }
 
+    private getPortDisplayValue(): string {
+        // If server is running, show the actual port
+        // If server is not running, show "N/A"
+        if (this.currentProjectStatus?.isRunning && this.currentProjectStatus?.port) {
+            return this.currentProjectStatus.port.toString();
+        }
+        return 'N/A';
+    }
+
+    private updatePortDisplay(): void {
+        // Send updated port info to the webview
+        const portValue = this.getPortDisplayValue();
+        this.sendProjectInfo({ port: portValue });
+    }
+
     private updateProjectStatus(status: string) {
         const message = {
             command: 'updateStatus',
@@ -1045,6 +1228,9 @@ export class ProjectControlPanel {
 
     public updateStatus(status: any) {
         console.log('ProjectControlPanel: updateStatus called with:', status);
+        
+        // Update the current project status
+        this.currentProjectStatus = status;
         
         // Determine the status string based on the status object
         let statusString = 'stopped';
@@ -1078,6 +1264,9 @@ export class ProjectControlPanel {
         } else {
             console.log('ProjectControlPanel: No view webview available');
         }
+        
+        // Update port display when status changes
+        this.updatePortDisplay();
         
         // Also update project info if available
         if (status.isRunning) {
